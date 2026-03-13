@@ -40,6 +40,56 @@
             touch-action: none;
             background-color: #f9fafb;
         }
+
+        /* --- PRINT A4 OPTIMIZATION --- */
+        @media print {
+            @page {
+                size: A4;
+                margin: 10mm;
+            }
+            body {
+                background: white;
+                font-size: 10pt;
+            }
+            /* Sembunyikan elemen yang tidak perlu saat cetak */
+            .max-w-5xl {
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .grid, header p, #clock, .bg-blue-900, button, #manualRoleContainer, .video-container, #signaturePad, .text-xs, #syncStatus {
+                display: none !important;
+            }
+            /* Tampilkan Tabel secara penuh */
+            .mt-12 {
+                margin-top: 0 !important;
+                border: none !important;
+                box-shadow: none !important;
+            }
+            table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+            }
+            th, td {
+                border: 1px solid #ddd !important;
+                padding: 8px !important;
+                word-break: break-word;
+            }
+            th:first-child, td:first-child {
+                display: none !important; /* Sembunyikan kolom AKSI */
+            }
+            .snapshot-preview {
+                width: 60px !important;
+                height: 45px !important;
+            }
+            header h1 {
+                font-size: 18pt !important;
+                margin-bottom: 10px;
+            }
+            #emptyState {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen font-sans">
@@ -120,6 +170,7 @@
                         <div class="flex gap-2">
                             <button onclick="exportToExcel()" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Excel</button>
                             <button onclick="exportToPDF()" class="text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">PDF</button>
+                            <button onclick="window.print()" class="text-xs bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-800">Cetak A4</button>
                         </div>
                     </div>
                     <div class="flex justify-between items-center py-2 border-b">
