@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absensi Pemerintah Desa Rambatan Wetan</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Library untuk Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Library untuk PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <!-- Library Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .video-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 1rem;
+            background: #000;
+        }
+        #video {
+            width: 100%;
+            height: auto;
+            transform: scaleX(-1); /* Mirror view */
+        }
+        #canvas {
+            display: none;
+        }
+        .snapshot-preview {
+            width: 80px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 0.25rem;
+        }
+        #signaturePad {
+            border: 2px dashed #ccc;
+            border-radius: 0.5rem;
+            cursor: crosshair;
+            touch-action: none;
+            background-color: #f9fafb;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans">
+
+    <div class="max-w-5xl mx-auto py-8 px-4">
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-blue-900">PEMERINTAH DESA RAMBATAN WETAN</h1>
+            <p class="text-gray-600">Sistem Informasi Absensi Digital (Supabase Cloud & Excel)</p>
+            <div id="clock" class="text-xl font-mono mt-2 font-semibold text-blue-600">--:--:--</div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Form Input -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h2 class="text-lg font-semibold mb-4 border-b pb-2">Input Kehadiran</h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Nama Lengkap</label>
+                        <input type="text" id="userName" placeholder="Masukkan nama Anda" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Jabatan / Bagian</label>
+                        <select id="userRole" onchange="toggleManualRole()" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none">
+                            <option value="">Pilih Jabatan</option>
+                            <option value="Kepala Desa">Kepala Desa</option>
+                            <option value="Sekretaris Desa">Sekretaris Desa</option>
+                            <option value="Kaur Umum">Kaur Umum</option>
+                            <option value="Kaur Keuangan">Kaur Keuangan</option>
+                            <option value="Kasi Pemerintahan">Kasi Pemerintahan</option>
+                            <option value="Kasi Kesejahteraan">Kasi Kesejahteraan</option>
+                            <option value="custom">Lainnya (Ketik Manual)</option>
+                        </select>
+                    </div>
+
+                    <div id="manualRoleContainer" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700">Tulis Jabatan Anda</label>
+                        <input type="text" id="customRole" placeholder="Contoh: Bendahara Desa" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none">
+                    </div>
+
+                    <!-- Camera Section -->
+                    <div class="video-container shadow-inner">
+                        <video id="video" autoplay playsinline></video>
+                        <div class="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                            Verifikasi Wajah Aktif
+                        </div>
+                    </div>
+
+                    <!-- Signature Section -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tanda Tangan</label>
+                        <canvas id="signaturePad" width="350" height="150" class="w-full"></canvas>
+                        <button type="button" onclick="clearSignature()" class="text-xs text-red-500 mt-1 hover:underline">Hapus Tanda Tangan</button>
+                    </div>
+
+                    <button id="captureBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition duration-200 flex items-center justify-center gap-2">
+                        <span id="btnText">Ambil Foto & Kirim Absensi</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Informasi Status -->
+            <div class="flex flex-col gap-4">
+                <div class="bg-blue-900 text-white p-6 rounded-2xl shadow-lg">
+                    <h3 class="text-lg font-bold mb-2">Informasi Perangkat</h3>
+                    <div class="space-y-2 text-sm opacity-90">
+                        <p id="geoStatus">Lokasi: Mencari GPS...</p>
+                        <p id="cameraStatus">Kamera: Menghubungkan...</p>
+                        <p id="dbStatus" class="text-yellow-400 italic">Database: Menghubungkan...</p>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex-grow">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-gray-800">Statistik Hari Ini</h3>
+                        <div class="flex gap-2">
+                            <button onclick="exportToExcel()" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Excel</button>
+                            <button onclick="exportToPDF()" class="text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">PDF</button>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b">
+                        <span>Total Hadir:</span>
+                        <span id="statTotal" class="font-bold text-blue-600">0</span>
+                    </div>
+                    <div class="mt-4 text-xs text-gray-500 italic">
+                        * Data tersimpan di Supabase (Realtime).
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabel Data -->
+        <div class="mt-12 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="p-6 border-b flex justify-between items-center">
+                <h2 class="text-xl font-bold text-gray-800">Daftar Kehadiran Terbaru</h2>
+                <div class="text-xs text-gray-400">Status: <span id="syncStatus">Sinkronisasi Aktif</span></div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left" id="attendanceTable">
+                    <thead class="bg-gray-50 text-gray-600 text-sm uppercase">
+                        <tr>
+                            <th class="px-4 py-4 font-semibold text-center">Aksi</th>
+                            <th class="px-4 py-4 font-semibold">Foto</th>
+                            <th class="px-4 py-4 font-semibold">Tanda Tangan</th>
+                            <th class="px-4 py-4 font-semibold">Nama / Jabatan</th>
+                            <th class="px-4 py-4 font-semibold">Tanggal</th>
+                            <th class="px-4 py-4 font-semibold">Waktu</th>
+                            <th class="px-4 py-4 font-semibold">Lokasi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attendanceTableBody" class="divide-y divide-gray-100">
+                    </tbody>
+                </table>
+            </div>
+            <div id="emptyState" class="py-12 text-center text-gray-400">
+                Memuat data dari server...
+            </div>
+        </div>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        // --- KONFIGURASI SUPABASE ---
+        const SUPABASE_URL = "https://ohsrazxqyetghgzczxgx.supabase.co"; 
+        const SUPABASE_KEY = "sb_publishable_d5qiJijQgwdnfMtzvrpkjw_H1L6REbW";
+        
+        let supabaseClient = null;
+
+        if (SUPABASE_URL && SUPABASE_KEY) {
+            try {
+                supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            } catch (e) {
+                console.error("Gagal inisialisasi Supabase:", e);
+            }
+        }
+
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const signaturePad = document.getElementById('signaturePad');
+        const captureBtn = document.getElementById('captureBtn');
+        const tableBody = document.getElementById('attendanceTableBody');
+        const emptyState = document.getElementById('emptyState');
+        const geoStatusDisplay = document.getElementById('geoStatus');
+        const dbStatus = document.getElementById('dbStatus');
+
+        let currentCoords = { lat: "-", long: "-" };
+        let localData = [];
+
+        async function initDatabase() {
+            if (!supabaseClient) {
+                dbStatus.textContent = "Database: URL/Key Belum Diisi";
+                return;
+            }
+            dbStatus.textContent = "Database: Terhubung";
+            fetchData();
+            supabaseClient
+                .channel('public:absensi')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'absensi' }, payload => {
+                    fetchData();
+                })
+                .subscribe();
+        }
+
+        async function fetchData() {
+            if (!supabaseClient) return;
+            try {
+                const { data, error } = await supabaseClient
+                    .from('absensi')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                if (error) throw error;
+                localData = data;
+                renderTable(data);
+            } catch (err) {
+                console.error("Fetch error:", err);
+                dbStatus.textContent = "Database: Error";
+            }
+        }
+
+        function renderTable(data) {
+            tableBody.innerHTML = "";
+            if (!data || data.length === 0) {
+                emptyState.style.display = "block";
+                emptyState.textContent = "Belum ada data absensi hari ini.";
+                document.getElementById('statTotal').textContent = "0";
+                return;
+            }
+            emptyState.style.display = "none";
+            document.getElementById('statTotal').textContent = data.length;
+            
+            data.forEach(item => {
+                const dateTime = item.time.split(', ');
+                const dateVal = dateTime[0] || "-";
+                const timeVal = dateTime[1] || "-";
+
+                const row = document.createElement('tr');
+                row.className = "hover:bg-gray-50 transition-colors";
+                row.innerHTML = `
+                    <td class="px-4 py-4 text-center">
+                        <div class="flex flex-col gap-1">
+                            <button onclick="editData('${item.id}', '${item.name}', '${item.role}')" class="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded hover:bg-yellow-200">Edit</button>
+                            <button onclick="deleteData('${item.id}')" class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200">Hapus</button>
+                        </div>
+                    </td>
+                    <td class="px-4 py-4"><img src="${item.image}" class="snapshot-preview border"></td>
+                    <td class="px-4 py-4"><img src="${item.signature}" class="snapshot-preview border bg-white"></td>
+                    <td class="px-4 py-4">
+                        <div class="font-bold text-gray-800">${item.name}</div>
+                        <div class="text-xs text-gray-500">${item.role}</div>
+                    </td>
+                    <td class="px-4 py-4 text-sm text-gray-600">${dateVal}</td>
+                    <td class="px-4 py-4 text-sm text-gray-600">${timeVal}</td>
+                    <td class="px-4 py-4 text-sm font-mono text-blue-600">${item.coords}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        async function editData(id, currentName, currentRole) {
+            const newName = prompt("Edit Nama Lengkap:", currentName);
+            if (newName === null) return;
+            const newRole = prompt("Edit Jabatan:", currentRole);
+            if (newRole === null) return;
+
+            try {
+                const { error } = await supabaseClient
+                    .from('absensi')
+                    .update({ name: newName, role: newRole })
+                    .eq('id', id);
+                if (error) throw error;
+                showToast("Data berhasil diperbarui!");
+                fetchData();
+            } catch (e) {
+                showToast("Gagal mengedit data!");
+            }
+        }
+
+        async function deleteData(id) {
+            if (!confirm("Apakah Anda yakin ingin menghapus data ini?")) return;
+            try {
+                const { error } = await supabaseClient
+                    .from('absensi')
+                    .delete()
+                    .eq('id', id);
+                if (error) throw error;
+                showToast("Data berhasil dihapus!");
+                fetchData();
+            } catch (e) {
+                showToast("Gagal menghapus data!");
+            }
+        }
+
+        captureBtn.addEventListener('click', async () => {
+            if (!supabaseClient) {
+                showToast("Konfigurasi Supabase URL/Key diperlukan!");
+                return;
+            }
+            const name = document.getElementById('userName').value;
+            const roleSelect = document.getElementById('userRole');
+            const customRoleInput = document.getElementById('customRole');
+            let finalRole = roleSelect.value === 'custom' ? customRoleInput.value : roleSelect.value;
+            if (!name || !finalRole) {
+                showToast("Harap isi nama dan jabatan!");
+                return;
+            }
+            if (isSignatureEmpty()) {
+                showToast("Harap isi tanda tangan!");
+                return;
+            }
+            captureBtn.disabled = true;
+            document.getElementById('btnText').textContent = "Mengirim...";
+            try {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const context = canvas.getContext('2d');
+                context.translate(canvas.width, 0);
+                context.scale(-1, 1);
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = canvas.toDataURL('image/jpeg', 0.5);
+                const signatureData = signaturePad.toDataURL('image/png');
+                const timestampStr = new Date().toLocaleString('id-ID');
+                const { error } = await supabaseClient
+                    .from('absensi')
+                    .insert([{
+                        name: name,
+                        role: finalRole,
+                        time: timestampStr,
+                        coords: `${currentCoords.lat}, ${currentCoords.long}`,
+                        image: imageData,
+                        signature: signatureData
+                    }]);
+                if (error) throw error;
+                document.getElementById('userName').value = "";
+                document.getElementById('customRole').value = "";
+                roleSelect.selectedIndex = 0;
+                document.getElementById('manualRoleContainer').classList.add('hidden');
+                clearSignature();
+                showToast("Absensi terkirim!");
+            } catch (e) {
+                console.error(e);
+                showToast("Gagal menyimpan ke server!");
+            } finally {
+                captureBtn.disabled = false;
+                document.getElementById('btnText').textContent = "Ambil Foto & Kirim Absensi";
+            }
+        });
+
+        window.exportToExcel = function() {
+            if (localData.length === 0) {
+                showToast("Tidak ada data untuk diunduh!");
+                return;
+            }
+            const excelData = localData.map(item => ({
+                "Nama": item.name,
+                "Jabatan": item.role,
+                "Waktu Absen": item.time,
+                "Koordinat": item.coords
+            }));
+            const worksheet = XLSX.utils.json_to_sheet(excelData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Absensi");
+            XLSX.writeFile(workbook, `Laporan_Absensi_RambatanWetan_${new Date().toLocaleDateString()}.xlsx`);
+        };
+
+        window.exportToPDF = function() {
+            if (localData.length === 0) {
+                showToast("Tidak ada data untuk diunduh!");
+                return;
+            }
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            doc.setFontSize(16);
+            doc.text("LAPORAN ABSENSI PEMERINTAH DESA RAMBATAN WETAN", 105, 15, { align: "center" });
+            doc.setFontSize(10);
+            doc.text(`Tanggal Cetak: ${new Date().toLocaleString('id-ID')}`, 105, 22, { align: "center" });
+
+            const rows = localData.map(item => [
+                item.name,
+                item.role,
+                item.time,
+                item.coords
+            ]);
+
+            doc.autoTable({
+                head: [['Nama', 'Jabatan', 'Waktu', 'Lokasi']],
+                body: rows,
+                startY: 30,
+                theme: 'striped',
+                headStyles: { fillColor: [30, 58, 138] }
+            });
+
+            doc.save(`Laporan_Absensi_RambatanWetan_${new Date().toLocaleDateString()}.pdf`);
+        };
+
+        window.toggleManualRole = function() {
+            const roleSelect = document.getElementById('userRole');
+            document.getElementById('manualRoleContainer').classList.toggle('hidden', roleSelect.value !== 'custom');
+        };
+
+        const sigCtx = signaturePad.getContext('2d');
+        let drawing = false;
+        function getPos(e) {
+            const rect = signaturePad.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: clientX - rect.left, y: clientY - rect.top };
+        }
+        signaturePad.addEventListener('mousedown', (e) => { drawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); });
+        signaturePad.addEventListener('mousemove', (e) => { if(!drawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); });
+        window.addEventListener('mouseup', () => drawing = false);
+        signaturePad.addEventListener('touchstart', (e) => { drawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); e.preventDefault(); });
+        signaturePad.addEventListener('touchmove', (e) => { if(!drawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); e.preventDefault(); });
+        window.clearSignature = () => sigCtx.clearRect(0, 0, signaturePad.width, signaturePad.height);
+        function isSignatureEmpty() { 
+            const blank = document.createElement('canvas'); blank.width = signaturePad.width; blank.height = signaturePad.height;
+            return signaturePad.toDataURL() === blank.toDataURL();
+        }
+
+        function updateClock() { document.getElementById('clock').textContent = new Date().toLocaleTimeString('id-ID', { hour12: false }); }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                video.srcObject = stream;
+                document.getElementById('cameraStatus').textContent = "Kamera: Siap";
+            } catch (err) { document.getElementById('cameraStatus').textContent = "Kamera: Gagal"; }
+        }
+
+        function initLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition((p) => {
+                    currentCoords.lat = p.coords.latitude.toFixed(6);
+                    currentCoords.long = p.coords.longitude.toFixed(6);
+                    geoStatusDisplay.textContent = `Lokasi: ${currentCoords.lat}, ${currentCoords.long}`;
+                }, () => geoStatusDisplay.textContent = "Lokasi: Izin Ditolak");
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.createElement('div');
+            toast.className = "fixed top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-xl z-50";
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        window.addEventListener('load', () => {
+            initCamera();
+            initLocation();
+            initDatabase();
+            sigCtx.strokeStyle = "#000"; sigCtx.lineWidth = 2; sigCtx.lineCap = "round";
+        });
+    </script>
+</body>
+</html>
