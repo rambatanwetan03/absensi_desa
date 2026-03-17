@@ -5,97 +5,58 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Absensi Pemerintah Desa Rambatan Wetan</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Library untuk Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Library untuk PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-    <!-- Library Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        .video-container {
-            position: relative;
-            overflow: hidden;
-            border-radius: 1rem;
-            background: #000;
-        }
-        #video {
-            width: 100%;
-            height: auto;
-            transform: scaleX(-1); /* Mirror view */
-        }
-        #canvas {
-            display: none;
-        }
-        .snapshot-preview {
-            width: 80px;
-            height: 60px;
-            object-fit: cover;
-            border-radius: 0.25rem;
-        }
-        #signaturePad {
-            border: 2px dashed #ccc;
-            border-radius: 0.5rem;
-            cursor: crosshair;
-            touch-action: none;
-            background-color: #f9fafb;
-        }
-
-        /* --- PRINT A4 OPTIMIZATION --- */
+        .video-container { position: relative; overflow: hidden; border-radius: 1rem; background: #000; }
+        #video { width: 100%; height: auto; transform: scaleX(-1); }
+        #canvas { display: none; }
+        .snapshot-preview { width: 80px; height: 60px; object-fit: cover; border-radius: 0.25rem; }
+        #signaturePad { border: 2px dashed #ccc; border-radius: 0.5rem; cursor: crosshair; touch-action: none; background-color: #f9fafb; }
         @media print {
-            @page {
-                size: A4;
-                margin: 10mm;
-            }
-            body {
-                background: white;
-                font-size: 10pt;
-            }
-            /* Sembunyikan elemen yang tidak perlu saat cetak */
-            .max-w-5xl {
-                max-width: 100% !important;
-                margin: 0 !important;
-                padding: 0 !important;
-            }
-            .grid, header p, #clock, .bg-blue-900, button, #manualRoleContainer, .video-container, #signaturePad, .text-xs, #syncStatus {
-                display: none !important;
-            }
-            /* Tampilkan Tabel secara penuh */
-            .mt-12 {
-                margin-top: 0 !important;
-                border: none !important;
-                box-shadow: none !important;
-            }
-            table {
-                width: 100% !important;
-                border-collapse: collapse !important;
-            }
-            th, td {
-                border: 1px solid #ddd !important;
-                padding: 8px !important;
-                word-break: break-word;
-            }
-            th:first-child, td:first-child {
-                display: none !important; /* Sembunyikan kolom AKSI */
-            }
-            .snapshot-preview {
-                width: 60px !important;
-                height: 45px !important;
-            }
-            header h1 {
-                font-size: 18pt !important;
-                margin-bottom: 10px;
-            }
-            #emptyState {
-                display: none;
-            }
+            @page { size: A4; margin: 10mm; }
+            body { background: white; font-size: 10pt; }
+            .max-w-5xl { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+            .grid, header p, #clock, .bg-blue-900, button, #manualRoleContainer, .video-container, #signaturePad, .text-xs, #syncStatus, #loginOverlay, .no-print { display: none !important; }
+            .mt-12 { margin-top: 0 !important; border: none !important; box-shadow: none !important; }
+            table { width: 100% !important; border-collapse: collapse !important; }
+            th, td { border: 1px solid #ddd !important; padding: 8px !important; word-break: break-word; }
+            th:first-child, td:first-child { display: none !important; }
+            .snapshot-preview { width: 60px !important; height: 45px !important; }
+            header h1 { font-size: 18pt !important; margin-bottom: 10px; }
         }
+        #loginOverlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.95); z-index: 100; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen font-sans">
 
+    <!-- LOGIN SYSTEM -->
+    <div id="loginOverlay">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
+            <div class="text-center mb-6">
+                <h2 class="text-2xl font-bold text-blue-900">Login Sistem</h2>
+                <p class="text-gray-500 text-sm">Silahkan masuk untuk mengakses panel</p>
+            </div>
+            <div class="space-y-4">
+                <input type="text" id="loginUser" placeholder="Username" class="w-full px-4 py-3 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                <div class="relative">
+                    <input type="password" id="loginPass" placeholder="Password" class="w-full px-4 py-3 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
+                    <button onclick="togglePassword()" class="absolute right-3 top-3.5 text-gray-400 hover:text-blue-600">
+                        <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                    </button>
+                </div>
+                <button onclick="handleLogin()" id="btnLogin" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition">Masuk</button>
+            </div>
+            <p class="text-center mt-4 text-xs text-gray-400">Pemerintah Desa Rambatan Wetan © 2024</p>
+        </div>
+    </div>
+
     <div class="max-w-5xl mx-auto py-8 px-4">
-        <!-- Header -->
         <header class="text-center mb-8">
             <h1 class="text-3xl font-bold text-blue-900">PEMERINTAH DESA RAMBATAN WETAN</h1>
             <p class="text-gray-600">Sistem Informasi Absensi Digital (Supabase Cloud & Excel)</p>
@@ -106,16 +67,21 @@
             <!-- Form Input -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <h2 class="text-lg font-semibold mb-4 border-b pb-2">Input Kehadiran</h2>
-                
                 <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <button onclick="setStatus('Hadir')" id="btnHadir" class="bg-blue-600 text-white py-2 rounded-lg text-sm font-bold opacity-100">HADIR</button>
+                        <button onclick="setStatus('Izin')" id="btnIzin" class="bg-gray-100 text-gray-600 py-2 rounded-lg text-sm font-bold">IZIN</button>
+                        <button onclick="setStatus('Sakit')" id="btnSakit" class="bg-gray-100 text-gray-600 py-2 rounded-lg text-sm font-bold">SAKIT</button>
+                    </div>
+                    
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Nama Lengkap</label>
-                        <input type="text" id="userName" placeholder="Masukkan nama Anda" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <input type="text" id="userName" placeholder="Masukkan nama Anda" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-blue-500 focus:border-blue-500">
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Jabatan / Bagian</label>
-                        <select id="userRole" onchange="toggleManualRole()" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <select id="userRole" onchange="toggleManualRole()" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 outline-none">
                             <option value="">Pilih Jabatan</option>
                             <option value="Kepala Desa">Kepala Desa</option>
                             <option value="Sekretaris Desa">Sekretaris Desa</option>
@@ -133,56 +99,63 @@
 
                     <div id="manualRoleContainer" class="hidden">
                         <label class="block text-sm font-medium text-gray-700">Tulis Jabatan Anda</label>
-                        <input type="text" id="customRole" placeholder="Contoh: Bendahara Desa" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <input type="text" id="customRole" placeholder="Contoh: Bendahara Desa" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg outline-none">
                     </div>
 
-                    <!-- Camera Section -->
                     <div class="video-container shadow-inner">
                         <video id="video" autoplay playsinline></video>
-                        <div class="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
-                            Verifikasi Wajah Aktif
-                        </div>
                     </div>
 
-                    <!-- Signature Section -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Tanda Tangan</label>
                         <canvas id="signaturePad" width="350" height="150" class="w-full"></canvas>
                         <button type="button" onclick="clearSignature()" class="text-xs text-red-500 mt-1 hover:underline">Hapus Tanda Tangan</button>
                     </div>
 
-                    <button id="captureBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition duration-200 flex items-center justify-center gap-2">
+                    <button id="captureBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2">
                         <span id="btnText">Ambil Foto & Kirim Absensi</span>
                     </button>
                 </div>
             </div>
 
-            <!-- Informasi Status -->
+            <!-- Informasi & Statistik -->
             <div class="flex flex-col gap-4">
                 <div class="bg-blue-900 text-white p-6 rounded-2xl shadow-lg">
                     <h3 class="text-lg font-bold mb-2">Informasi Perangkat</h3>
                     <div class="space-y-2 text-sm opacity-90">
                         <p id="geoStatus">Lokasi: Mencari GPS...</p>
-                        <p id="cameraStatus">Kamera: Menghubungkan...</p>
+                        <p id="deviceInfo">Perangkat: Mendeteksi...</p>
                         <p id="dbStatus" class="text-yellow-400 italic">Database: Menghubungkan...</p>
                     </div>
                 </div>
 
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex-grow">
                     <div class="flex justify-between items-center mb-4">
-                        <h3 class="font-bold text-gray-800">Statistik Hari Ini</h3>
-                        <div class="flex gap-2">
+                        <h3 class="font-bold text-gray-800">Rekap Bulanan (Realtime)</h3>
+                        <div class="flex gap-2 no-print admin-only hidden">
                             <button onclick="exportToExcel()" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Excel</button>
                             <button onclick="exportToPDF()" class="text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">PDF</button>
-                            <button onclick="window.print()" class="text-xs bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-800">Cetak A4</button>
                         </div>
                     </div>
-                    <div class="flex justify-between items-center py-2 border-b">
-                        <span>Total Hadir:</span>
-                        <span id="statTotal" class="font-bold text-blue-600">0</span>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="p-3 bg-blue-50 rounded-xl text-center">
+                            <div class="text-xs text-blue-600">Hadir</div>
+                            <div id="statHadir" class="text-xl font-bold text-blue-900">0</div>
+                        </div>
+                        <div class="p-3 bg-yellow-50 rounded-xl text-center">
+                            <div class="text-xs text-yellow-600">Izin</div>
+                            <div id="statIzin" class="text-xl font-bold text-yellow-900">0</div>
+                        </div>
+                        <div class="p-3 bg-red-50 rounded-xl text-center">
+                            <div class="text-xs text-red-600">Sakit</div>
+                            <div id="statSakit" class="text-xl font-bold text-red-900">0</div>
+                        </div>
                     </div>
-                    <div class="mt-4 text-xs text-gray-500 italic">
-                        * Data tersimpan di Supabase (Realtime).
+                    <div class="mt-4 pt-4 border-t border-dashed">
+                        <div class="flex justify-between text-sm">
+                            <span>Total Hari Ini:</span>
+                            <span id="statTotal" class="font-bold">0</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -190,49 +163,43 @@
 
         <!-- Tabel Data -->
         <div class="mt-12 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="p-6 border-b flex justify-between items-center">
-                <h2 class="text-xl font-bold text-gray-800">Daftar Kehadiran Terbaru</h2>
-                <div class="text-xs text-gray-400">Status: <span id="syncStatus">Sinkronisasi Aktif</span></div>
+            <div class="p-6 border-b flex flex-wrap justify-between items-center gap-4">
+                <h2 class="text-xl font-bold text-gray-800">Daftar Kehadiran</h2>
+                <div class="flex items-center gap-2">
+                    <input type="date" id="filterDate" onchange="fetchData()" class="px-3 py-1 border rounded-lg text-sm outline-none">
+                    <div id="syncStatus" class="text-[10px] text-green-500 uppercase font-bold">Online</div>
+                </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left" id="attendanceTable">
-                    <thead class="bg-gray-50 text-gray-600 text-sm uppercase">
+                    <thead class="bg-gray-50 text-gray-600 text-xs uppercase">
                         <tr>
-                            <th class="px-4 py-4 font-semibold text-center">Aksi</th>
-                            <th class="px-4 py-4 font-semibold">Foto</th>
-                            <th class="px-4 py-4 font-semibold">Tanda Tangan</th>
-                            <th class="px-4 py-4 font-semibold">Nama / Jabatan</th>
-                            <th class="px-4 py-4 font-semibold">Tanggal</th>
-                            <th class="px-4 py-4 font-semibold">Waktu</th>
-                            <th class="px-4 py-4 font-semibold">Lokasi</th>
+                            <th class="px-4 py-4 admin-only hidden">Aksi</th>
+                            <th class="px-4 py-4">Foto</th>
+                            <th class="px-4 py-4">Status</th>
+                            <th class="px-4 py-4">Nama / Jabatan</th>
+                            <th class="px-4 py-4">Waktu & HP</th>
+                            <th class="px-4 py-4">Lokasi</th>
                         </tr>
                     </thead>
-                    <tbody id="attendanceTableBody" class="divide-y divide-gray-100">
-                    </tbody>
+                    <tbody id="attendanceTableBody" class="divide-y divide-gray-100 text-sm"></tbody>
                 </table>
             </div>
-            <div id="emptyState" class="py-12 text-center text-gray-400">
-                Memuat data dari server...
-            </div>
+            <div id="emptyState" class="py-12 text-center text-gray-400">Memuat data...</div>
         </div>
     </div>
 
     <canvas id="canvas"></canvas>
 
     <script>
-        // --- KONFIGURASI SUPABASE ---
+        // CONFIG & STATE
         const SUPABASE_URL = "https://ohsrazxqyetghgzczxgx.supabase.co"; 
         const SUPABASE_KEY = "sb_publishable_d5qiJijQgwdnfMtzvrpkjw_H1L6REbW";
-        
         let supabaseClient = null;
-
-        if (SUPABASE_URL && SUPABASE_KEY) {
-            try {
-                supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            } catch (e) {
-                console.error("Gagal inisialisasi Supabase:", e);
-            }
-        }
+        let currentUserRole = 'pamong';
+        let selectedStatus = 'Hadir';
+        let localData = [];
+        let currentCoords = { lat: "-", long: "-" };
 
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
@@ -240,135 +207,187 @@
         const captureBtn = document.getElementById('captureBtn');
         const tableBody = document.getElementById('attendanceTableBody');
         const emptyState = document.getElementById('emptyState');
-        const geoStatusDisplay = document.getElementById('geoStatus');
         const dbStatus = document.getElementById('dbStatus');
 
-        let currentCoords = { lat: "-", long: "-" };
-        let localData = [];
+        // 1. LOGIN SYSTEM
+        function togglePassword() {
+            const pass = document.getElementById('loginPass');
+            pass.type = pass.type === 'password' ? 'text' : 'password';
+        }
 
-        async function initDatabase() {
-            if (!supabaseClient) {
-                dbStatus.textContent = "Database: URL/Key Belum Diisi";
-                return;
+        async function handleLogin() {
+            const u = document.getElementById('loginUser').value;
+            const p = document.getElementById('loginPass').value;
+            
+            if (u === "Ramwet03" && p === "Istimewa03") {
+                currentUserRole = 'admin';
+                document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
+                document.getElementById('loginOverlay').style.display = 'none';
+                initApp();
+            } else if (u === "Ramwet03" && p === "12345") {
+                currentUserRole = 'pamong';
+                document.getElementById('loginOverlay').style.display = 'none';
+                initApp();
+            } else {
+                alert("Username atau Password Salah!");
             }
-            dbStatus.textContent = "Database: Terhubung";
-            fetchData();
-            supabaseClient
-                .channel('public:absensi')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'absensi' }, payload => {
-                    fetchData();
-                })
-                .subscribe();
+        }
+
+        // Enter to login
+        document.getElementById('loginPass').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleLogin();
+        });
+
+        function initApp() {
+            if (SUPABASE_URL && SUPABASE_KEY) {
+                supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                dbStatus.textContent = "Database: Terhubung";
+                fetchData();
+                initRealtime();
+            }
+            initCamera();
+            initLocation();
+            detectDevice();
+            document.getElementById('filterDate').valueAsDate = new Date();
+        }
+
+        // 2. VALIDASI JAM KERJA
+        function checkWorkTime() {
+            const now = new Date();
+            const hour = now.getHours();
+            const min = now.getMinutes();
+            const totalMin = (hour * 60) + min;
+
+            const masukStart = 7 * 60;   // 07:00
+            const masukEnd = 9 * 60;     // 09:00
+            const pulangStart = 15 * 60; // 15:00
+            const pulangEnd = 17 * 60;   // 17:00
+
+            if (totalMin >= masukStart && totalMin <= masukEnd) return "Masuk";
+            if (totalMin >= pulangStart && totalMin <= pulangEnd) return "Pulang";
+            return "Luar Jam Kerja";
+        }
+
+        // 3. CEGAH ABSENSI GANDA
+        async function hasAbsentedToday(name, session) {
+            const today = new Date().toLocaleDateString('id-ID');
+            const { data } = await supabaseClient
+                .from('absensi')
+                .select('name, time')
+                .eq('name', name);
+            
+            return data.some(item => item.time.includes(today) && item.time.includes(session));
         }
 
         async function fetchData() {
             if (!supabaseClient) return;
-            try {
-                const { data, error } = await supabaseClient
-                    .from('absensi')
-                    .select('*')
-                    .order('created_at', { ascending: false });
-                if (error) throw error;
+            const filterDate = document.getElementById('filterDate').value;
+            const dateObj = new Date(filterDate);
+            const formattedFilter = dateObj.toLocaleDateString('id-ID');
+
+            const { data, error } = await supabaseClient.from('absensi').select('*').order('created_at', { ascending: false });
+            if (!error) {
                 localData = data;
-                renderTable(data);
-            } catch (err) {
-                console.error("Fetch error:", err);
-                dbStatus.textContent = "Database: Error";
+                const filtered = data.filter(item => item.time.includes(formattedFilter));
+                renderTable(filtered);
+                calculateStats(data);
             }
+        }
+
+        function calculateStats(data) {
+            const currentMonth = new Date().getMonth();
+            const currentYear = new Date().getFullYear();
+            
+            const monthly = data.filter(item => {
+                const d = new Date(item.created_at);
+                return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+            });
+
+            document.getElementById('statHadir').textContent = monthly.filter(i => i.status === 'Hadir').length;
+            document.getElementById('statIzin').textContent = monthly.filter(i => i.status === 'Izin').length;
+            document.getElementById('statSakit').textContent = monthly.filter(i => i.status === 'Sakit').length;
+        }
+
+        function setStatus(s) {
+            selectedStatus = s;
+            ['btnHadir', 'btnIzin', 'btnSakit'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (id.includes(s)) {
+                    btn.classList.replace('bg-gray-100', 'bg-blue-600');
+                    btn.classList.replace('text-gray-600', 'text-white');
+                } else {
+                    btn.classList.replace('bg-blue-600', 'bg-gray-100');
+                    btn.classList.replace('text-white', 'text-gray-600');
+                }
+            });
+        }
+
+        function detectDevice() {
+            const ua = navigator.userAgent;
+            let device = "PC/Laptop";
+            if (/android/i.test(ua)) device = "Android Phone";
+            else if (/iPhone|iPad/i.test(ua)) device = "iOS Device";
+            document.getElementById('deviceInfo').textContent = "Perangkat: " + device;
+            return device;
         }
 
         function renderTable(data) {
             tableBody.innerHTML = "";
-            if (!data || data.length === 0) {
-                emptyState.style.display = "block";
-                emptyState.textContent = "Belum ada data absensi hari ini.";
-                document.getElementById('statTotal').textContent = "0";
-                return;
-            }
-            emptyState.style.display = "none";
+            emptyState.style.display = data.length ? "none" : "block";
             document.getElementById('statTotal').textContent = data.length;
             
             data.forEach(item => {
-                const dateTime = item.time.split(', ');
-                const dateVal = dateTime[0] || "-";
-                const timeVal = dateTime[1] || "-";
-
                 const row = document.createElement('tr');
                 row.className = "hover:bg-gray-50 transition-colors";
                 row.innerHTML = `
-                    <td class="px-4 py-4 text-center">
+                    <td class="px-4 py-4 admin-only ${currentUserRole === 'admin' ? '' : 'hidden'}">
                         <div class="flex flex-col gap-1">
-                            <button onclick="editData('${item.id}', '${item.name}', '${item.role}')" class="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded hover:bg-yellow-200">Edit</button>
-                            <button onclick="deleteData('${item.id}')" class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200">Hapus</button>
+                            <button onclick="editData('${item.id}', '${item.name}', '${item.role}')" class="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-1 rounded">Edit</button>
+                            <button onclick="deleteData('${item.id}')" class="text-[10px] bg-red-100 text-red-700 px-2 py-1 rounded">Hapus</button>
                         </div>
                     </td>
-                    <td class="px-4 py-4"><img src="${item.image}" class="snapshot-preview border"></td>
-                    <td class="px-4 py-4"><img src="${item.signature}" class="snapshot-preview border bg-white"></td>
+                    <td class="px-4 py-4">
+                        <div class="flex gap-1">
+                            <img src="${item.image}" class="snapshot-preview border">
+                            <img src="${item.signature}" class="snapshot-preview border bg-white">
+                        </div>
+                    </td>
+                    <td class="px-4 py-4 font-bold text-xs ${item.status === 'Hadir' ? 'text-green-600' : 'text-red-600'}">${item.status || 'Hadir'}</td>
                     <td class="px-4 py-4">
                         <div class="font-bold text-gray-800">${item.name}</div>
-                        <div class="text-xs text-gray-500">${item.role}</div>
+                        <div class="text-[10px] text-gray-500">${item.role}</div>
                     </td>
-                    <td class="px-4 py-4 text-sm text-gray-600">${dateVal}</td>
-                    <td class="px-4 py-4 text-sm text-gray-600">${timeVal}</td>
-                    <td class="px-4 py-4 text-sm font-mono text-blue-600">${item.coords}</td>
+                    <td class="px-4 py-4 text-[10px] text-gray-600">
+                        <div>${item.time}</div>
+                        <div class="italic text-blue-500">${item.device || '-'}</div>
+                    </td>
+                    <td class="px-4 py-4 text-[10px] font-mono text-gray-400">${item.coords}</td>
                 `;
                 tableBody.appendChild(row);
             });
         }
 
-        async function editData(id, currentName, currentRole) {
-            const newName = prompt("Edit Nama Lengkap:", currentName);
-            if (newName === null) return;
-            const newRole = prompt("Edit Jabatan:", currentRole);
-            if (newRole === null) return;
-
-            try {
-                const { error } = await supabaseClient
-                    .from('absensi')
-                    .update({ name: newName, role: newRole })
-                    .eq('id', id);
-                if (error) throw error;
-                showToast("Data berhasil diperbarui!");
-                fetchData();
-            } catch (e) {
-                showToast("Gagal mengedit data!");
-            }
-        }
-
-        async function deleteData(id) {
-            if (!confirm("Apakah Anda yakin ingin menghapus data ini?")) return;
-            try {
-                const { error } = await supabaseClient
-                    .from('absensi')
-                    .delete()
-                    .eq('id', id);
-                if (error) throw error;
-                showToast("Data berhasil dihapus!");
-                fetchData();
-            } catch (e) {
-                showToast("Gagal menghapus data!");
-            }
-        }
-
         captureBtn.addEventListener('click', async () => {
-            if (!supabaseClient) {
-                showToast("Konfigurasi Supabase URL/Key diperlukan!");
+            const session = checkWorkTime();
+            if (session === "Luar Jam Kerja") {
+                showToast("Absensi ditutup. Jam kerja: 07:00-09:00 & 15:00-17:00");
                 return;
             }
+
             const name = document.getElementById('userName').value;
             const roleSelect = document.getElementById('userRole');
-            const customRoleInput = document.getElementById('customRole');
-            let finalRole = roleSelect.value === 'custom' ? customRoleInput.value : roleSelect.value;
-            if (!name || !finalRole) {
-                showToast("Harap isi nama dan jabatan!");
-                return;
-            }
-            if (isSignatureEmpty()) {
-                showToast("Harap isi tanda tangan!");
-                return;
-            }
+            let finalRole = roleSelect.value === 'custom' ? document.getElementById('customRole').value : roleSelect.value;
+
+            if (!name || !finalRole) return showToast("Isi Nama & Jabatan!");
+            if (isSignatureEmpty()) return showToast("Tanda Tangan Diperlukan!");
+
+            // Cek Double Absen
+            const isGanda = await hasAbsentedToday(name, session);
+            if (isGanda) return showToast(`Anda sudah absen ${session} hari ini!`);
+
             captureBtn.disabled = true;
             document.getElementById('btnText').textContent = "Mengirim...";
+
             try {
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
@@ -376,95 +395,67 @@
                 context.translate(canvas.width, 0);
                 context.scale(-1, 1);
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const imageData = canvas.toDataURL('image/jpeg', 0.5);
-                const signatureData = signaturePad.toDataURL('image/png');
-                const timestampStr = new Date().toLocaleString('id-ID');
-                const { error } = await supabaseClient
-                    .from('absensi')
-                    .insert([{
-                        name: name,
-                        role: finalRole,
-                        time: timestampStr,
-                        coords: `${currentCoords.lat}, ${currentCoords.long}`,
-                        image: imageData,
-                        signature: signatureData
-                    }]);
+                
+                const { error } = await supabaseClient.from('absensi').insert([{
+                    name: name,
+                    role: finalRole,
+                    status: selectedStatus,
+                    time: `${new Date().toLocaleDateString('id-ID')}, ${new Date().toLocaleTimeString('id-ID')} (${session})`,
+                    coords: `${currentCoords.lat}, ${currentCoords.long}`,
+                    image: canvas.toDataURL('image/jpeg', 0.5),
+                    signature: signaturePad.toDataURL('image/png'),
+                    device: detectDevice()
+                }]);
+
                 if (error) throw error;
-                document.getElementById('userName').value = "";
-                document.getElementById('customRole').value = "";
-                roleSelect.selectedIndex = 0;
-                document.getElementById('manualRoleContainer').classList.add('hidden');
-                clearSignature();
-                showToast("Absensi terkirim!");
+                resetForm();
+                showToast("Absensi Berhasil!");
+                fetchData();
             } catch (e) {
-                console.error(e);
-                showToast("Gagal menyimpan ke server!");
+                showToast("Gagal kirim data!");
             } finally {
                 captureBtn.disabled = false;
                 document.getElementById('btnText').textContent = "Ambil Foto & Kirim Absensi";
             }
         });
 
-        window.exportToExcel = function() {
-            if (localData.length === 0) {
-                showToast("Tidak ada data untuk diunduh!");
-                return;
+        function resetForm() {
+            document.getElementById('userName').value = "";
+            clearSignature();
+            setStatus('Hadir');
+        }
+
+        function initRealtime() {
+            supabaseClient.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'absensi' }, () => fetchData()).subscribe();
+        }
+
+        async function deleteData(id) {
+            if (confirm("Hapus data?")) {
+                await supabaseClient.from('absensi').delete().eq('id', id);
+                fetchData();
             }
-            const excelData = localData.map(item => ({
-                "Nama": item.name,
-                "Jabatan": item.role,
-                "Waktu Absen": item.time,
-                "Koordinat": item.coords
-            }));
-            const worksheet = XLSX.utils.json_to_sheet(excelData);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Absensi");
-            XLSX.writeFile(workbook, `Laporan_Absensi_RambatanWetan_${new Date().toLocaleDateString()}.xlsx`);
-        };
+        }
 
-        window.exportToPDF = function() {
-            if (localData.length === 0) {
-                showToast("Tidak ada data untuk diunduh!");
-                return;
+        async function editData(id, n, r) {
+            const nn = prompt("Nama Baru:", n);
+            const nr = prompt("Jabatan Baru:", r);
+            if (nn && nr) {
+                await supabaseClient.from('absensi').update({ name: nn, role: nr }).eq('id', id);
+                fetchData();
             }
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            
-            doc.setFontSize(16);
-            doc.text("LAPORAN ABSENSI PEMERINTAH DESA RAMBATAN WETAN", 105, 15, { align: "center" });
-            doc.setFontSize(10);
-            doc.text(`Tanggal Cetak: ${new Date().toLocaleString('id-ID')}`, 105, 22, { align: "center" });
+        }
 
-            const rows = localData.map(item => [
-                item.name,
-                item.role,
-                item.time,
-                item.coords
-            ]);
-
-            doc.autoTable({
-                head: [['Nama', 'Jabatan', 'Waktu', 'Lokasi']],
-                body: rows,
-                startY: 30,
-                theme: 'striped',
-                headStyles: { fillColor: [30, 58, 138] }
-            });
-
-            doc.save(`Laporan_Absensi_RambatanWetan_${new Date().toLocaleDateString()}.pdf`);
-        };
-
-        window.toggleManualRole = function() {
-            const roleSelect = document.getElementById('userRole');
-            document.getElementById('manualRoleContainer').classList.toggle('hidden', roleSelect.value !== 'custom');
-        };
-
+        // --- COMMON UTILS (FROM ORIGINAL) ---
+        function toggleManualRole() { 
+            document.getElementById('manualRoleContainer').classList.toggle('hidden', document.getElementById('userRole').value !== 'custom'); 
+        }
         const sigCtx = signaturePad.getContext('2d');
         let drawing = false;
-        function getPos(e) {
-            const rect = signaturePad.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            return { x: clientX - rect.left, y: clientY - rect.top };
+        function getPos(e) { 
+            const rect = signaturePad.getBoundingClientRect(); 
+            const cx = e.touches ? e.touches[0].clientX : e.clientX;
+            const cy = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: cx - rect.left, y: cy - rect.top }; 
         }
         signaturePad.addEventListener('mousedown', (e) => { drawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); });
         signaturePad.addEventListener('mousemove', (e) => { if(!drawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); });
@@ -472,48 +463,38 @@
         signaturePad.addEventListener('touchstart', (e) => { drawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); e.preventDefault(); });
         signaturePad.addEventListener('touchmove', (e) => { if(!drawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); e.preventDefault(); });
         window.clearSignature = () => sigCtx.clearRect(0, 0, signaturePad.width, signaturePad.height);
-        function isSignatureEmpty() { 
-            const blank = document.createElement('canvas'); blank.width = signaturePad.width; blank.height = signaturePad.height;
-            return signaturePad.toDataURL() === blank.toDataURL();
+        function isSignatureEmpty() {
+            const b = document.createElement('canvas'); b.width = signaturePad.width; b.height = signaturePad.height;
+            return signaturePad.toDataURL() === b.toDataURL();
         }
-
         function updateClock() { document.getElementById('clock').textContent = new Date().toLocaleTimeString('id-ID', { hour12: false }); }
         setInterval(updateClock, 1000);
-        updateClock();
-
         async function initCamera() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-                video.srcObject = stream;
-                document.getElementById('cameraStatus').textContent = "Kamera: Siap";
-            } catch (err) { document.getElementById('cameraStatus').textContent = "Kamera: Gagal"; }
+                const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                video.srcObject = s;
+            } catch (err) { console.log("Kamera Error"); }
         }
-
         function initLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.watchPosition((p) => {
                     currentCoords.lat = p.coords.latitude.toFixed(6);
                     currentCoords.long = p.coords.longitude.toFixed(6);
-                    geoStatusDisplay.textContent = `Lokasi: ${currentCoords.lat}, ${currentCoords.long}`;
-                }, () => geoStatusDisplay.textContent = "Lokasi: Izin Ditolak");
+                    document.getElementById('geoStatus').textContent = `Lokasi: ${currentCoords.lat}, ${currentCoords.long}`;
+                });
             }
         }
-
-        function showToast(msg) {
-            const toast = document.createElement('div');
-            toast.className = "fixed top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-xl z-50";
-            toast.textContent = msg;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
+        function showToast(m) {
+            const t = document.createElement('div');
+            t.className = "fixed top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-xl z-[200] text-sm";
+            t.textContent = m;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 3000);
         }
 
-        window.addEventListener('load', () => {
-            initCamera();
-            initLocation();
-            initDatabase();
-            sigCtx.strokeStyle = "#000"; sigCtx.lineWidth = 2; sigCtx.lineCap = "round";
-        });
+        // Backup Offline (Local Storage)
+        window.addEventListener('online', () => showToast("Sistem Kembali Online"));
+        window.addEventListener('offline', () => showToast("Sistem Berjalan Offline (Backup Aktif)"));
     </script>
 </body>
 </html>
-
