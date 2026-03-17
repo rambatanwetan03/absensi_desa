@@ -160,6 +160,10 @@
                             <span id="statTotal" class="font-bold">0</span>
                         </div>
                     </div>
+                    <!-- Reset Button for Admin -->
+                    <div class="mt-4 pt-2 no-print admin-only">
+                        <button onclick="resetAllData()" class="w-full text-[10px] bg-red-50 text-red-600 border border-red-100 py-1 rounded hover:bg-red-100 transition font-bold uppercase tracking-wider">Reset Semua Data</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -468,6 +472,37 @@
             if (nn && nr) {
                 await supabaseClient.from('absensi').update({ name: nn, role: nr }).eq('id', id);
                 fetchData();
+            }
+        }
+
+        // NEW: RESET ALL DATA FUNCTION
+        async function resetAllData() {
+            if (currentUserRole !== 'admin') return;
+            
+            const konfirmasi = confirm("PERINGATAN KRITIS!\n\nAnda akan menghapus SELURUH data absensi di database.\nTindakan ini tidak bisa dibatalkan.\n\nApakah Anda yakin?");
+            
+            if (konfirmasi) {
+                const validasi = prompt("Ketik 'HAPUS SEMUA' untuk konfirmasi:");
+                if (validasi === "HAPUS SEMUA") {
+                    try {
+                        // Supabase delete all require a filter that matches everything, 
+                        // usually we filter by id is not null
+                        const { error } = await supabaseClient
+                            .from('absensi')
+                            .delete()
+                            .neq('id', '00000000-0000-0000-0000-000000000000'); // Hack to target all IDs
+
+                        if (error) throw error;
+                        
+                        showToast("Seluruh data telah dihapus!");
+                        fetchData();
+                    } catch (e) {
+                        console.error(e);
+                        showToast("Gagal mereset data. Periksa koneksi.");
+                    }
+                } else {
+                    showToast("Reset dibatalkan. Kata kunci salah.");
+                }
             }
         }
 
