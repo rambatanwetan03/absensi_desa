@@ -66,7 +66,7 @@
         </header>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <!-- Form Input (Pamong & Admin can see) -->
+            <!-- Form Input -->
             <div id="formSection" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <h2 class="text-lg font-semibold mb-4 border-b pb-2">Input Kehadiran</h2>
                 <div class="space-y-4">
@@ -120,7 +120,7 @@
                 </div>
             </div>
 
-            <!-- Informasi & Statistik (Admin Only) -->
+            <!-- Informasi & Statistik -->
             <div class="flex flex-col gap-4">
                 <div class="bg-blue-900 text-white p-6 rounded-2xl shadow-lg">
                     <h3 class="text-lg font-bold mb-2">Informasi Perangkat</h3>
@@ -160,7 +160,6 @@
                             <span id="statTotal" class="font-bold">0</span>
                         </div>
                     </div>
-                    <!-- Reset Button for Admin -->
                     <div class="mt-4 pt-2 no-print admin-only">
                         <button onclick="resetAllData()" class="w-full text-[10px] bg-red-50 text-red-600 border border-red-100 py-1 rounded hover:bg-red-100 transition font-bold uppercase tracking-wider">Reset Semua Data</button>
                     </div>
@@ -168,7 +167,7 @@
             </div>
         </div>
 
-        <!-- Tabel Data (Admin Only View) -->
+        <!-- Tabel Data -->
         <div id="tableSection" class="mt-12 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden admin-only">
             <div class="p-6 border-b flex flex-wrap justify-between items-center gap-4">
                 <h2 class="text-xl font-bold text-gray-800">Daftar Kehadiran</h2>
@@ -216,7 +215,6 @@
         const emptyState = document.getElementById('emptyState');
         const dbStatus = document.getElementById('dbStatus');
 
-        // Check login on load
         window.onload = function() {
             const savedRole = localStorage.getItem('user_role');
             if (savedRole) {
@@ -228,7 +226,6 @@
             updateClock();
         };
 
-        // 1. LOGIN SYSTEM
         function togglePassword() {
             const pass = document.getElementById('loginPass');
             pass.type = pass.type === 'password' ? 'text' : 'password';
@@ -264,7 +261,6 @@
                 document.getElementById('formSection').classList.remove('md:col-span-2');
             } else {
                 adminElements.forEach(el => el.classList.add('hidden-element'));
-                // Pamong view: make form full width
                 document.getElementById('formSection').classList.add('md:col-span-2');
             }
         }
@@ -282,7 +278,6 @@
             document.getElementById('filterDate').valueAsDate = new Date();
         }
 
-        // 2. VALIDASI JAM KERJA
         function checkWorkTime() {
             const now = new Date();
             const hour = now.getHours();
@@ -311,14 +306,16 @@
         }
 
         async function fetchData() {
-            if (!supabaseClient || currentUserRole !== 'admin') return;
-            const filterDate = document.getElementById('filterDate').value;
+            if (!supabaseClient) return;
+            const filterDateInput = document.getElementById('filterDate');
+            const filterDate = filterDateInput.value || new Date().toISOString().split('T')[0];
             const dateObj = new Date(filterDate);
             const formattedFilter = dateObj.toLocaleDateString('id-ID');
 
             const { data, error } = await supabaseClient.from('absensi').select('*').order('created_at', { ascending: false });
             if (!error) {
                 localData = data;
+                // Selalu render tabel di memory, UI yang mengontrol visibility
                 const filtered = data.filter(item => item.time.includes(formattedFilter));
                 renderTable(filtered);
                 calculateStats(data);
@@ -431,7 +428,10 @@
                 if (error) throw error;
                 resetForm();
                 showToast("Absensi Berhasil!");
-                if(currentUserRole === 'admin') fetchData();
+                
+                // Pastikan data langsung diupdate
+                await fetchData();
+                
             } catch (e) {
                 showToast("Gagal kirim data!");
             } finally {
@@ -440,7 +440,6 @@
             }
         });
 
-        // --- EXPORT FUNCTIONS ---
         function exportToExcel() {
             const date = document.getElementById('filterDate').value;
             const table = document.getElementById('attendanceTable');
@@ -458,7 +457,6 @@
             doc.save(`Absensi_Ramwet_${new Date().toLocaleDateString()}.pdf`);
         }
 
-        // --- ADMIN ACTIONS ---
         async function deleteData(id) {
             if (confirm("Hapus data ini secara permanen?")) {
                 await supabaseClient.from('absensi').delete().eq('id', id);
@@ -475,38 +473,28 @@
             }
         }
 
-        // NEW: RESET ALL DATA FUNCTION
         async function resetAllData() {
             if (currentUserRole !== 'admin') return;
-            
-            const konfirmasi = confirm("PERINGATAN KRITIS!\n\nAnda akan menghapus SELURUH data absensi di database.\nTindakan ini tidak bisa dibatalkan.\n\nApakah Anda yakin?");
-            
+            const konfirmasi = confirm("PERINGATAN KRITIS!\n\nAnda akan menghapus SELURUH data absensi di database.\n\nApakah Anda yakin?");
             if (konfirmasi) {
                 const validasi = prompt("Ketik 'HAPUS SEMUA' untuk konfirmasi:");
                 if (validasi === "HAPUS SEMUA") {
                     try {
-                        // Supabase delete all require a filter that matches everything, 
-                        // usually we filter by id is not null
                         const { error } = await supabaseClient
                             .from('absensi')
                             .delete()
-                            .neq('id', '00000000-0000-0000-0000-000000000000'); // Hack to target all IDs
+                            .neq('name', 'HACK_FILTER_ALL'); 
 
                         if (error) throw error;
-                        
                         showToast("Seluruh data telah dihapus!");
                         fetchData();
                     } catch (e) {
-                        console.error(e);
-                        showToast("Gagal mereset data. Periksa koneksi.");
+                        showToast("Gagal mereset data.");
                     }
-                } else {
-                    showToast("Reset dibatalkan. Kata kunci salah.");
                 }
             }
         }
 
-        // --- UTILS ---
         function toggleManualRole() { 
             document.getElementById('manualRoleContainer').classList.toggle('hidden', document.getElementById('userRole').value !== 'custom'); 
         }
@@ -560,7 +548,7 @@
         }
         function initRealtime() {
             supabaseClient.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'absensi' }, () => {
-                if(currentUserRole === 'admin') fetchData();
+                fetchData();
             }).subscribe();
         }
         function showToast(m) {
