@@ -19,7 +19,7 @@
             @page { size: A4; margin: 10mm; }
             body { background: white; font-size: 10pt; }
             .max-w-5xl { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
-            .grid, header p, #clock, .bg-blue-900, button, #manualRoleContainer, .video-container, #signaturePad, .text-xs, #syncStatus, #loginOverlay, .no-print { display: none !important; }
+            .grid, header p, #clock, .bg-blue-900, button, #manualRoleContainer, .video-container, #signaturePad, .text-xs, #syncStatus, #loginOverlay, .no-print, .admin-actions { display: none !important; }
             .mt-12 { margin-top: 0 !important; border: none !important; box-shadow: none !important; }
             table { width: 100% !important; border-collapse: collapse !important; }
             th, td { border: 1px solid #ddd !important; padding: 8px !important; word-break: break-word; }
@@ -28,6 +28,7 @@
             header h1 { font-size: 18pt !important; margin-bottom: 10px; }
         }
         #loginOverlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.95); z-index: 100; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        .hidden-element { display: none !important; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen font-sans">
@@ -57,15 +58,16 @@
     </div>
 
     <div class="max-w-5xl mx-auto py-8 px-4">
-        <header class="text-center mb-8">
+        <header class="text-center mb-8 relative">
+            <button onclick="handleLogout()" class="no-print absolute top-0 right-0 bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-200 transition">Logout</button>
             <h1 class="text-3xl font-bold text-blue-900">PEMERINTAH DESA RAMBATAN WETAN</h1>
             <p class="text-gray-600">Sistem Informasi Absensi Digital (Supabase Cloud & Excel)</p>
             <div id="clock" class="text-xl font-mono mt-2 font-semibold text-blue-600">--:--:--</div>
         </header>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <!-- Form Input -->
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <!-- Form Input (Pamong & Admin can see) -->
+            <div id="formSection" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <h2 class="text-lg font-semibold mb-4 border-b pb-2">Input Kehadiran</h2>
                 <div class="space-y-4">
                     <div class="grid grid-cols-2 gap-2 mb-2">
@@ -118,7 +120,7 @@
                 </div>
             </div>
 
-            <!-- Informasi & Statistik -->
+            <!-- Informasi & Statistik (Admin Only) -->
             <div class="flex flex-col gap-4">
                 <div class="bg-blue-900 text-white p-6 rounded-2xl shadow-lg">
                     <h3 class="text-lg font-bold mb-2">Informasi Perangkat</h3>
@@ -129,12 +131,13 @@
                     </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex-grow">
+                <div id="statSection" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex-grow admin-only">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="font-bold text-gray-800">Rekap Bulanan (Realtime)</h3>
-                        <div class="flex gap-2 no-print admin-only hidden">
-                            <button onclick="exportToExcel()" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Excel</button>
-                            <button onclick="exportToPDF()" class="text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">PDF</button>
+                        <div class="flex gap-2 no-print">
+                            <button onclick="exportToExcel()" class="text-[10px] bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700">Excel/Word</button>
+                            <button onclick="exportToPDF()" class="text-[10px] bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700">PDF</button>
+                            <button onclick="window.print()" class="text-[10px] bg-gray-600 text-white px-2 py-1 rounded hover:bg-gray-700">Cetak</button>
                         </div>
                     </div>
                     <div class="grid grid-cols-3 gap-2">
@@ -161,8 +164,8 @@
             </div>
         </div>
 
-        <!-- Tabel Data -->
-        <div class="mt-12 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <!-- Tabel Data (Admin Only View) -->
+        <div id="tableSection" class="mt-12 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden admin-only">
             <div class="p-6 border-b flex flex-wrap justify-between items-center gap-4">
                 <h2 class="text-xl font-bold text-gray-800">Daftar Kehadiran</h2>
                 <div class="flex items-center gap-2">
@@ -174,7 +177,7 @@
                 <table class="w-full text-left" id="attendanceTable">
                     <thead class="bg-gray-50 text-gray-600 text-xs uppercase">
                         <tr>
-                            <th class="px-4 py-4 admin-only hidden">Aksi</th>
+                            <th class="px-4 py-4 no-print">Aksi</th>
                             <th class="px-4 py-4">Foto</th>
                             <th class="px-4 py-4">Status</th>
                             <th class="px-4 py-4">Nama / Jabatan</th>
@@ -196,7 +199,7 @@
         const SUPABASE_URL = "https://zafnamhtrorlmuwxqkhd.supabase.co"; 
         const SUPABASE_KEY = "sb_publishable_YjQxJc_qyCIaCFtHsaw-jg_0Eb24-Xm";
         let supabaseClient = null;
-        let currentUserRole = 'pamong';
+        let currentUserRole = null;
         let selectedStatus = 'Hadir';
         let localData = [];
         let currentCoords = { lat: "-", long: "-" };
@@ -208,6 +211,18 @@
         const tableBody = document.getElementById('attendanceTableBody');
         const emptyState = document.getElementById('emptyState');
         const dbStatus = document.getElementById('dbStatus');
+
+        // Check login on load
+        window.onload = function() {
+            const savedRole = localStorage.getItem('user_role');
+            if (savedRole) {
+                currentUserRole = savedRole;
+                applyRoleUI();
+                initApp();
+                document.getElementById('loginOverlay').style.display = 'none';
+            }
+            updateClock();
+        };
 
         // 1. LOGIN SYSTEM
         function togglePassword() {
@@ -221,22 +236,34 @@
             
             if (u === "Ramwet03" && p === "Istimewa03") {
                 currentUserRole = 'admin';
-                document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
-                document.getElementById('loginOverlay').style.display = 'none';
-                initApp();
             } else if (u === "Ramwet03" && p === "12345") {
                 currentUserRole = 'pamong';
-                document.getElementById('loginOverlay').style.display = 'none';
-                initApp();
             } else {
-                alert("Username atau Password Salah!");
+                return alert("Username atau Password Salah!");
             }
+
+            localStorage.setItem('user_role', currentUserRole);
+            applyRoleUI();
+            document.getElementById('loginOverlay').style.display = 'none';
+            initApp();
         }
 
-        // Enter to login
-        document.getElementById('loginPass').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') handleLogin();
-        });
+        function handleLogout() {
+            localStorage.removeItem('user_role');
+            window.location.reload();
+        }
+
+        function applyRoleUI() {
+            const adminElements = document.querySelectorAll('.admin-only');
+            if (currentUserRole === 'admin') {
+                adminElements.forEach(el => el.classList.remove('hidden-element'));
+                document.getElementById('formSection').classList.remove('md:col-span-2');
+            } else {
+                adminElements.forEach(el => el.classList.add('hidden-element'));
+                // Pamong view: make form full width
+                document.getElementById('formSection').classList.add('md:col-span-2');
+            }
+        }
 
         function initApp() {
             if (SUPABASE_URL && SUPABASE_KEY) {
@@ -268,19 +295,19 @@
             return "Luar Jam Kerja";
         }
 
-        // 3. CEGAH ABSENSI GANDA
         async function hasAbsentedToday(name, session) {
+            if(!supabaseClient) return false;
             const today = new Date().toLocaleDateString('id-ID');
             const { data } = await supabaseClient
                 .from('absensi')
                 .select('name, time')
                 .eq('name', name);
             
-            return data.some(item => item.time.includes(today) && item.time.includes(session));
+            return data ? data.some(item => item.time.includes(today) && item.time.includes(session)) : false;
         }
 
         async function fetchData() {
-            if (!supabaseClient) return;
+            if (!supabaseClient || currentUserRole !== 'admin') return;
             const filterDate = document.getElementById('filterDate').value;
             const dateObj = new Date(filterDate);
             const formattedFilter = dateObj.toLocaleDateString('id-ID');
@@ -322,15 +349,6 @@
             });
         }
 
-        function detectDevice() {
-            const ua = navigator.userAgent;
-            let device = "PC/Laptop";
-            if (/android/i.test(ua)) device = "Android Phone";
-            else if (/iPhone|iPad/i.test(ua)) device = "iOS Device";
-            document.getElementById('deviceInfo').textContent = "Perangkat: " + device;
-            return device;
-        }
-
         function renderTable(data) {
             tableBody.innerHTML = "";
             emptyState.style.display = data.length ? "none" : "block";
@@ -340,7 +358,7 @@
                 const row = document.createElement('tr');
                 row.className = "hover:bg-gray-50 transition-colors";
                 row.innerHTML = `
-                    <td class="px-4 py-4 admin-only ${currentUserRole === 'admin' ? '' : 'hidden'}">
+                    <td class="px-4 py-4 no-print">
                         <div class="flex flex-col gap-1">
                             <button onclick="editData('${item.id}', '${item.name}', '${item.role}')" class="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-1 rounded">Edit</button>
                             <button onclick="deleteData('${item.id}')" class="text-[10px] bg-red-100 text-red-700 px-2 py-1 rounded">Hapus</button>
@@ -370,7 +388,7 @@
         captureBtn.addEventListener('click', async () => {
             const session = checkWorkTime();
             if (session === "Luar Jam Kerja") {
-                showToast("Absensi ditutup. Jam kerja: 07:00-09:00 & 15:00-17:00");
+                showToast("Absensi ditutup. Jam kerja: 07:00-10:00 & 15:00-17:00");
                 return;
             }
 
@@ -381,7 +399,6 @@
             if (!name || !finalRole) return showToast("Isi Nama & Jabatan!");
             if (isSignatureEmpty()) return showToast("Tanda Tangan Diperlukan!");
 
-            // Cek Double Absen
             const isGanda = await hasAbsentedToday(name, session);
             if (isGanda) return showToast(`Anda sudah absen ${session} hari ini!`);
 
@@ -410,7 +427,7 @@
                 if (error) throw error;
                 resetForm();
                 showToast("Absensi Berhasil!");
-                fetchData();
+                if(currentUserRole === 'admin') fetchData();
             } catch (e) {
                 showToast("Gagal kirim data!");
             } finally {
@@ -419,33 +436,42 @@
             }
         });
 
-        function resetForm() {
-            document.getElementById('userName').value = "";
-            clearSignature();
-            setStatus('Hadir');
+        // --- EXPORT FUNCTIONS ---
+        function exportToExcel() {
+            const date = document.getElementById('filterDate').value;
+            const table = document.getElementById('attendanceTable');
+            const ws = XLSX.utils.table_to_sheet(table);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Absensi");
+            XLSX.writeFile(wb, `Absensi_Ramwet_${date}.xlsx`);
         }
 
-        function initRealtime() {
-            supabaseClient.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'absensi' }, () => fetchData()).subscribe();
+        async function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.text("Rekap Absensi Desa Rambatan Wetan", 14, 15);
+            doc.autoTable({ html: '#attendanceTable', startY: 20 });
+            doc.save(`Absensi_Ramwet_${new Date().toLocaleDateString()}.pdf`);
         }
 
+        // --- ADMIN ACTIONS ---
         async function deleteData(id) {
-            if (confirm("Hapus data?")) {
+            if (confirm("Hapus data ini secara permanen?")) {
                 await supabaseClient.from('absensi').delete().eq('id', id);
                 fetchData();
             }
         }
 
         async function editData(id, n, r) {
-            const nn = prompt("Nama Baru:", n);
-            const nr = prompt("Jabatan Baru:", r);
+            const nn = prompt("Edit Nama:", n);
+            const nr = prompt("Edit Jabatan:", r);
             if (nn && nr) {
                 await supabaseClient.from('absensi').update({ name: nn, role: nr }).eq('id', id);
                 fetchData();
             }
         }
 
-        // --- COMMON UTILS (FROM ORIGINAL) ---
+        // --- UTILS ---
         function toggleManualRole() { 
             document.getElementById('manualRoleContainer').classList.toggle('hidden', document.getElementById('userRole').value !== 'custom'); 
         }
@@ -484,6 +510,24 @@
                 });
             }
         }
+        function detectDevice() {
+            const ua = navigator.userAgent;
+            let device = "PC/Laptop";
+            if (/android/i.test(ua)) device = "Android Phone";
+            else if (/iPhone|iPad/i.test(ua)) device = "iOS Device";
+            document.getElementById('deviceInfo').textContent = "Perangkat: " + device;
+            return device;
+        }
+        function resetForm() {
+            document.getElementById('userName').value = "";
+            clearSignature();
+            setStatus('Hadir');
+        }
+        function initRealtime() {
+            supabaseClient.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'absensi' }, () => {
+                if(currentUserRole === 'admin') fetchData();
+            }).subscribe();
+        }
         function showToast(m) {
             const t = document.createElement('div');
             t.className = "fixed top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-xl z-[200] text-sm";
@@ -491,10 +535,6 @@
             document.body.appendChild(t);
             setTimeout(() => t.remove(), 3000);
         }
-
-        // Backup Offline (Local Storage)
-        window.addEventListener('online', () => showToast("Sistem Kembali Online"));
-        window.addEventListener('offline', () => showToast("Sistem Berjalan Offline (Backup Aktif)"));
     </script>
 </body>
 </html>
