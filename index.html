@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Absensi Pemerintah Desa Rambatan Wetan</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -10,11 +10,21 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        .video-container { position: relative; overflow: hidden; border-radius: 1rem; background: #000; }
-        #video { width: 100%; height: auto; transform: scaleX(-1); }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .video-container { position: relative; overflow: hidden; border-radius: 1rem; background: #000; aspect-ratio: 4/3; }
+        #video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
         #canvas { display: none; }
-        .snapshot-preview { width: 80px; height: 60px; object-fit: cover; border-radius: 0.25rem; }
-        #signaturePad { border: 2px dashed #ccc; border-radius: 0.5rem; cursor: crosshair; touch-action: none; background-color: #f9fafb; }
+        .snapshot-preview { width: 60px; height: 45px; object-fit: cover; border-radius: 0.5rem; border: 1px solid #e5e7eb; }
+        #signaturePad { border: 2px dashed #cbd5e1; border-radius: 0.75rem; cursor: crosshair; touch-action: none; background-color: #f8fafc; transition: border 0.3s; }
+        #signaturePad:active { border-color: #3b82f6; }
+        
+        /* Custom Scrollbar for Desktop */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
         @media print {
             @page { size: A4; margin: 10mm; }
             body { background: white; font-size: 10pt; }
@@ -27,178 +37,240 @@
             .snapshot-preview { width: 60px !important; height: 45px !important; }
             header h1 { font-size: 18pt !important; margin-bottom: 10px; }
         }
-        #loginOverlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.95); z-index: 100; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+
+        #loginOverlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.98); z-index: 100; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); padding: 1.5rem; }
         .hidden-element { display: none !important; }
+        
+        /* Status Badges */
+        .badge-hadir { background: #dcfce7; color: #166534; }
+        .badge-izin { background: #fef9c3; color: #854d0e; }
+        .badge-sakit { background: #fee2e2; color: #991b1b; }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen font-sans">
+<body class="bg-slate-50 min-h-screen text-slate-800">
 
     <!-- LOGIN SYSTEM -->
     <div id="loginOverlay">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
-            <div class="text-center mb-6">
-                <h2 class="text-2xl font-bold text-blue-900">Login Sistem</h2>
-                <p class="text-gray-500 text-sm">Silahkan masuk untuk mengakses panel</p>
+        <div class="bg-white p-6 md:p-10 rounded-3xl shadow-2xl w-full max-w-md border border-slate-100">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-blue-600 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg shadow-blue-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-900">Login Sistem</h2>
+                <p class="text-slate-500 text-sm mt-1">Silahkan masuk untuk mengakses panel</p>
             </div>
             <div class="space-y-4">
-                <input type="text" id="loginUser" placeholder="Username" class="w-full px-4 py-3 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
-                <div class="relative">
-                    <input type="password" id="loginPass" placeholder="Password" class="w-full px-4 py-3 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500">
-                    <button onclick="togglePassword()" class="absolute right-3 top-3.5 text-gray-400 hover:text-blue-600">
-                        <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                    </button>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1 ml-1">Username</label>
+                    <input type="text" id="loginUser" placeholder="Username" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition">
                 </div>
-                <button onclick="handleLogin()" id="btnLogin" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition">Masuk</button>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1 ml-1">Password</label>
+                    <div class="relative">
+                        <input type="password" id="loginPass" placeholder="••••••••" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition">
+                        <button onclick="togglePassword()" class="absolute right-3 top-3.5 text-slate-400 hover:text-blue-600 transition">
+                            <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <button onclick="handleLogin()" id="btnLogin" class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 active:scale-[0.98] transition-all mt-2">Masuk</button>
             </div>
-            <p class="text-center mt-4 text-xs text-gray-400">Pemerintah Desa Rambatan Wetan © 2024</p>
+            <p class="text-center mt-6 text-[10px] text-slate-400 font-medium tracking-widest uppercase">Pemerintah Desa Rambatan Wetan © 2024</p>
         </div>
     </div>
 
-    <div class="max-w-5xl mx-auto py-8 px-4">
-        <header class="text-center mb-8 relative">
-            <button onclick="handleLogout()" class="no-print absolute top-0 right-0 bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-200 transition">Logout</button>
-            <h1 class="text-3xl font-bold text-blue-900">PEMERINTAH DESA RAMBATAN WETAN</h1>
-            <p class="text-gray-600">Sistem Informasi Absensi Digital (Supabase Cloud & Excel)</p>
-            <div id="clock" class="text-xl font-mono mt-2 font-semibold text-blue-600">--:--:--</div>
+    <div class="max-w-5xl mx-auto py-6 md:py-10 px-4">
+        <header class="text-center mb-10 relative">
+            <button onclick="handleLogout()" class="no-print absolute top-0 right-0 bg-white text-red-600 border border-red-100 px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-red-50 transition">Logout</button>
+            <h1 class="text-2xl md:text-4xl font-black text-slate-900 tracking-tight leading-tight">PEMERINTAH DESA<br class="md:hidden"> RAMBATAN WETAN</h1>
+            <p class="text-slate-500 mt-2 text-sm md:text-base font-medium">Sistem Informasi Absensi Digital (Cloud Service)</p>
+            <div class="inline-block mt-4 px-6 py-2 bg-blue-50 rounded-full">
+                <div id="clock" class="text-xl md:text-2xl font-bold font-mono text-blue-700 tracking-widest">00:00:00</div>
+            </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             <!-- Form Input -->
-            <div id="formSection" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h2 class="text-lg font-semibold mb-4 border-b pb-2">Input Kehadiran</h2>
-                <div class="space-y-4">
-                    <div class="grid grid-cols-2 gap-2 mb-2">
-                        <button onclick="setStatus('Hadir')" id="btnHadir" class="bg-blue-600 text-white py-2 rounded-lg text-sm font-bold opacity-100">HADIR</button>
-                        <button onclick="setStatus('Izin')" id="btnIzin" class="bg-gray-100 text-gray-600 py-2 rounded-lg text-sm font-bold">IZIN</button>
-                        <button onclick="setStatus('Sakit')" id="btnSakit" class="bg-gray-100 text-gray-600 py-2 rounded-lg text-sm font-bold">SAKIT</button>
+            <div id="formSection" class="lg:col-span-7 bg-white p-5 md:p-8 rounded-[2rem] shadow-sm border border-slate-100">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold">1</div>
+                    <h2 class="text-xl font-bold text-slate-900">Input Kehadiran</h2>
+                </div>
+                
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 ml-1">Status Kehadiran</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button onclick="setStatus('Hadir')" id="btnHadir" class="bg-blue-600 text-white py-3 rounded-2xl text-sm font-bold shadow-md shadow-blue-100 transition-all">HADIR</button>
+                            <button onclick="setStatus('Izin')" id="btnIzin" class="bg-slate-50 text-slate-500 py-3 rounded-2xl text-sm font-bold border border-slate-100 transition-all">IZIN</button>
+                            <button onclick="setStatus('Sakit')" id="btnSakit" class="bg-slate-50 text-slate-500 py-3 rounded-2xl text-sm font-bold border border-slate-100 transition-all">SAKIT</button>
+                        </div>
                     </div>
                     
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Nama Lengkap</label>
-                        <input type="text" id="userName" placeholder="Masukkan nama Anda" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 ml-1">Nama Lengkap</label>
+                            <input type="text" id="userName" placeholder="Nama sesuai SK" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 ml-1">Jabatan / Bagian</label>
+                            <select id="userRole" onchange="toggleManualRole()" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition appearance-none">
+                                <option value="">Pilih Jabatan</option>
+                                <option value="Kepala Desa">Kepala Desa</option>
+                                <option value="Staff Sekretaris Desa">Staff Sekretaris Desa</option>
+                                <option value="Staff Kaur tu Umum">Staff Kaur TU Umum</option>
+                                <option value="Staff Bendahara">Staff Bendahara</option>
+                                <option value="Staff Kliwon">Staff Kliwon</option>
+                                <option value="Staff Raksabumi">Staff Raksabumi</option>
+                                <option value="Staff Operator Desa">Staff Operator desa</option>
+                                <option value="Staff Bekel">Staff Bekel</option>
+                                <option value="Staff Lurah">Staff Lurah</option>
+                                <option value="Staff Poldes">Staff Poldes</option>
+                                <option value="custom">Lainnya (Ketik Manual)</option>
+                            </select>
+                        </div>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Jabatan / Bagian</label>
-                        <select id="userRole" onchange="toggleManualRole()" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 outline-none">
-                            <option value="">Pilih Jabatan</option>
-                            <option value="Kepala Desa">Kepala Desa</option>
-                            <option value="Staff Sekretaris Desa">Staff Sekretaris Desa</option>
-                            <option value="Staff Kaur tu Umum">Staff Kaur TU Umum</option>
-                            <option value="Staff Bendahara">Staff Bendahara</option>
-                            <option value="Staff Kliwon">Staff Kliwon</option>
-                            <option value="Staff Raksabumi">Staff Raksabumi</option>
-                            <option value="Staff Operator Desa">Staff Operator desa</option>
-                            <option value="Staff Bekel">Staff Bekel</option>
-                            <option value="Staff Lurah">Staff Lurah</option>
-                            <option value="Staff Poldes">Staff Poldes</option>
-                            <option value="custom">Lainnya (Ketik Manual)</option>
-                        </select>
+                    <div id="manualRoleContainer" class="hidden animate-pulse">
+                        <label class="block text-xs font-bold text-blue-600 uppercase tracking-wider mb-2 ml-1">Ketik Jabatan Manual</label>
+                        <input type="text" id="customRole" placeholder="Contoh: Bendahara Desa" class="w-full px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl outline-none">
                     </div>
 
-                    <div id="manualRoleContainer" class="hidden">
-                        <label class="block text-sm font-medium text-gray-700">Tulis Jabatan Anda</label>
-                        <input type="text" id="customRole" placeholder="Contoh: Bendahara Desa" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg outline-none">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 ml-1">Verifikasi Wajah</label>
+                            <div class="video-container shadow-inner border border-slate-200 ring-4 ring-slate-50">
+                                <video id="video" autoplay playsinline></video>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 ml-1 text-center md:text-left">Tanda Tangan Digital</label>
+                            <div class="bg-white rounded-2xl p-1 border border-slate-200 ring-4 ring-slate-50">
+                                <canvas id="signaturePad" width="350" height="180" class="w-full"></canvas>
+                            </div>
+                            <button type="button" onclick="clearSignature()" class="w-full text-xs text-red-500 font-bold mt-2 hover:bg-red-50 py-1 rounded-lg transition uppercase tracking-tighter text-center">× Hapus Tanda Tangan</button>
+                        </div>
                     </div>
 
-                    <div class="video-container shadow-inner">
-                        <video id="video" autoplay playsinline></video>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Tanda Tangan</label>
-                        <canvas id="signaturePad" width="350" height="150" class="w-full"></canvas>
-                        <button type="button" onclick="clearSignature()" class="text-xs text-red-500 mt-1 hover:underline">Hapus Tanda Tangan</button>
-                    </div>
-
-                    <button id="captureBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2">
-                        <span id="btnText">Ambil Foto & Kirim Absensi</span>
+                    <button id="captureBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-xl shadow-blue-200 active:scale-[0.98] md:text-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span id="btnText">KIRIM ABSENSI SEKARANG</span>
                     </button>
                 </div>
             </div>
 
             <!-- Informasi & Statistik -->
-            <div class="flex flex-col gap-4">
-                <div class="bg-blue-900 text-white p-6 rounded-2xl shadow-lg">
-                    <h3 class="text-lg font-bold mb-2">Informasi Perangkat</h3>
-                    <div class="space-y-2 text-sm opacity-90">
-                        <p id="geoStatus">Lokasi: Mencari GPS...</p>
-                        <p id="deviceInfo">Perangkat: Mendeteksi...</p>
-                        <p id="dbStatus" class="text-yellow-400 italic">Database: Menghubungkan...</p>
+            <div class="lg:col-span-5 flex flex-col gap-6">
+                <div class="bg-slate-900 text-white p-6 md:p-8 rounded-[2rem] shadow-xl relative overflow-hidden">
+                    <div class="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl"></div>
+                    <div class="relative z-10">
+                        <h3 class="text-sm font-bold text-blue-400 uppercase tracking-widest mb-4">Informasi Sistem</h3>
+                        <div class="space-y-4">
+                            <div class="flex items-start gap-3">
+                                <div class="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center shrink-0">📍</div>
+                                <div>
+                                    <p class="text-[10px] text-white/50 font-bold uppercase tracking-tighter">Lokasi Terkini</p>
+                                    <p id="geoStatus" class="text-sm font-medium">Mencari GPS...</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <div class="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center shrink-0">📱</div>
+                                <div>
+                                    <p class="text-[10px] text-white/50 font-bold uppercase tracking-tighter">ID Perangkat</p>
+                                    <p id="deviceInfo" class="text-sm font-medium">Mendeteksi...</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <div class="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center shrink-0">🌐</div>
+                                <div>
+                                    <p class="text-[10px] text-white/50 font-bold uppercase tracking-tighter">Status Cloud</p>
+                                    <p id="dbStatus" class="text-sm font-bold text-yellow-400 italic">Menghubungkan...</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div id="statSection" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex-grow admin-only">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="font-bold text-gray-800">Rekap Bulanan (Realtime)</h3>
-                        <div class="flex gap-2 no-print">
-                            <button onclick="exportToExcel()" class="text-[10px] bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700">Excel/Word</button>
-                            <button onclick="exportToPDF()" class="text-[10px] bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700">PDF</button>
-                            <button onclick="window.print()" class="text-[10px] bg-gray-600 text-white px-2 py-1 rounded hover:bg-gray-700">Cetak</button>
+                <div id="statSection" class="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-slate-100 admin-only">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="font-bold text-slate-900">Rekap Bulanan</h3>
+                        <div id="syncStatus" class="flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-600 rounded-full text-[10px] font-black uppercase tracking-tighter">
+                            <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Online
                         </div>
                     </div>
-                    <div class="grid grid-cols-3 gap-2">
-                        <div class="p-3 bg-blue-50 rounded-xl text-center">
-                            <div class="text-xs text-blue-600">Hadir</div>
-                            <div id="statHadir" class="text-xl font-bold text-blue-900">0</div>
+                    
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="p-4 bg-emerald-50 rounded-2xl text-center border border-emerald-100">
+                            <div class="text-[10px] font-black text-emerald-600 uppercase mb-1">Hadir</div>
+                            <div id="statHadir" class="text-2xl font-black text-emerald-900 leading-none">0</div>
                         </div>
-                        <div class="p-3 bg-yellow-50 rounded-xl text-center">
-                            <div class="text-xs text-yellow-600">Izin</div>
-                            <div id="statIzin" class="text-xl font-bold text-yellow-900">0</div>
+                        <div class="p-4 bg-amber-50 rounded-2xl text-center border border-amber-100">
+                            <div class="text-[10px] font-black text-amber-600 uppercase mb-1">Izin</div>
+                            <div id="statIzin" class="text-2xl font-black text-amber-900 leading-none">0</div>
                         </div>
-                        <div class="p-3 bg-red-50 rounded-xl text-center">
-                            <div class="text-xs text-red-600">Sakit</div>
-                            <div id="statSakit" class="text-xl font-bold text-red-900">0</div>
-                        </div>
-                    </div>
-                    <div class="mt-4 pt-4 border-t border-dashed">
-                        <div class="flex justify-between text-sm">
-                            <span>Total Hari Ini:</span>
-                            <span id="statTotal" class="font-bold">0</span>
+                        <div class="p-4 bg-rose-50 rounded-2xl text-center border border-rose-100">
+                            <div class="text-[10px] font-black text-rose-600 uppercase mb-1">Sakit</div>
+                            <div id="statSakit" class="text-2xl font-black text-rose-900 leading-none">0</div>
                         </div>
                     </div>
-                    <div class="mt-4 pt-2 no-print admin-only">
-                        <button onclick="resetAllData()" class="w-full text-[10px] bg-red-50 text-red-600 border border-red-100 py-1 rounded hover:bg-red-100 transition font-bold uppercase tracking-wider">Reset Semua Data</button>
+
+                    <div class="mt-8 pt-6 border-t border-slate-100">
+                        <div class="grid grid-cols-3 gap-2 no-print mb-4">
+                            <button onclick="exportToExcel()" class="bg-slate-900 text-white p-2 rounded-xl text-[10px] font-bold hover:bg-slate-800 transition">EXCEL</button>
+                            <button onclick="exportToPDF()" class="bg-slate-900 text-white p-2 rounded-xl text-[10px] font-bold hover:bg-slate-800 transition">PDF</button>
+                            <button onclick="window.print()" class="bg-slate-900 text-white p-2 rounded-xl text-[10px] font-bold hover:bg-slate-800 transition">CETAK</button>
+                        </div>
+                        <button onclick="resetAllData()" class="w-full text-[10px] text-rose-600 hover:text-white border border-rose-200 hover:bg-rose-500 py-3 rounded-xl transition font-black uppercase tracking-widest">Reset Database</button>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Tabel Data -->
-        <div id="tableSection" class="mt-12 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden admin-only">
-            <div class="p-6 border-b flex flex-wrap justify-between items-center gap-4">
-                <h2 class="text-xl font-bold text-gray-800">Daftar Kehadiran</h2>
-                <div class="flex items-center gap-2">
-                    <input type="date" id="filterDate" onchange="fetchData()" class="px-3 py-1 border rounded-lg text-sm outline-none">
-                    <div id="syncStatus" class="text-[10px] text-green-500 uppercase font-bold">Online</div>
+        <div id="tableSection" class="mt-10 bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden admin-only">
+            <div class="p-6 md:p-8 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <h2 class="text-2xl font-black text-slate-900 tracking-tight">Daftar Kehadiran</h2>
+                <div class="flex items-center gap-3">
+                    <label class="text-xs font-bold text-slate-400 uppercase">Filter Tanggal:</label>
+                    <input type="date" id="filterDate" onchange="fetchData()" class="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
             </div>
-            <div class="overflow-x-auto">
+            
+            <div class="overflow-x-auto overflow-y-hidden">
                 <table class="w-full text-left" id="attendanceTable">
-                    <thead class="bg-gray-50 text-gray-600 text-xs uppercase">
+                    <thead class="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">
                         <tr>
-                            <th class="px-4 py-4 no-print">Aksi</th>
-                            <th class="px-4 py-4">Foto</th>
-                            <th class="px-4 py-4">Status</th>
-                            <th class="px-4 py-4">Nama / Jabatan</th>
-                            <th class="px-4 py-4">Waktu & HP</th>
-                            <th class="px-4 py-4">Lokasi</th>
+                            <th class="px-6 py-5 no-print">Aksi</th>
+                            <th class="px-6 py-5">Identitas Visual</th>
+                            <th class="px-6 py-5">Status</th>
+                            <th class="px-6 py-5">Pamong Desa</th>
+                            <th class="px-6 py-5">Waktu Presensi</th>
+                            <th class="px-6 py-5">Titik Koordinat</th>
                         </tr>
                     </thead>
-                    <tbody id="attendanceTableBody" class="divide-y divide-gray-100 text-sm"></tbody>
+                    <tbody id="attendanceTableBody" class="divide-y divide-slate-50 text-sm"></tbody>
                 </table>
             </div>
-            <div id="emptyState" class="py-12 text-center text-gray-400">Memuat data...</div>
+            <div id="emptyState" class="py-20 text-center">
+                <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">📁</div>
+                <p class="text-slate-400 font-medium">Belum ada data pada tanggal terpilih</p>
+            </div>
         </div>
     </div>
 
     <canvas id="canvas"></canvas>
 
+    <!-- SCRIPT ORIGINAL TETAP BERFUNGSI -->
     <script>
-        // CONFIG & STATE
+        // CONFIG & STATE (Sesuai kode awal Anda)
         const SUPABASE_URL = "https://zafnamhtrorlmuwxqkhd.supabase.co"; 
         const SUPABASE_KEY = "sb_publishable_YjQxJc_qyCIaCFtHsaw-jg_0Eb24-Xm";
         let supabaseClient = null;
@@ -224,6 +296,12 @@
                 document.getElementById('loginOverlay').style.display = 'none';
             }
             updateClock();
+            
+            // Fix Signature Canvas Size for High DPI Screens
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            signaturePad.width = signaturePad.offsetWidth * ratio;
+            signaturePad.height = signaturePad.offsetHeight * ratio;
+            signaturePad.getContext("2d").scale(ratio, ratio);
         };
 
         function togglePassword() {
@@ -240,7 +318,7 @@
             } else if (u === "Ramwet03" && p === "12345") {
                 currentUserRole = 'pamong';
             } else {
-                return alert("Username atau Password Salah!");
+                return showToast("Username atau Password Salah!");
             }
 
             localStorage.setItem('user_role', currentUserRole);
@@ -258,17 +336,19 @@
             const adminElements = document.querySelectorAll('.admin-only');
             if (currentUserRole === 'admin') {
                 adminElements.forEach(el => el.classList.remove('hidden-element'));
-                document.getElementById('formSection').classList.remove('md:col-span-2');
+                document.getElementById('formSection').classList.remove('lg:col-span-12');
+                document.getElementById('formSection').classList.add('lg:col-span-7');
             } else {
                 adminElements.forEach(el => el.classList.add('hidden-element'));
-                document.getElementById('formSection').classList.add('md:col-span-2');
+                document.getElementById('formSection').classList.remove('lg:col-span-7');
+                document.getElementById('formSection').classList.add('lg:col-span-12');
             }
         }
 
         function initApp() {
             if (SUPABASE_URL && SUPABASE_KEY) {
                 supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                dbStatus.textContent = "Database: Terhubung";
+                dbStatus.textContent = "Online";
                 fetchData();
                 initRealtime();
             }
@@ -315,7 +395,6 @@
             const { data, error } = await supabaseClient.from('absensi').select('*').order('created_at', { ascending: false });
             if (!error) {
                 localData = data;
-                // Selalu render tabel di memory, UI yang mengontrol visibility
                 const filtered = data.filter(item => item.time.includes(formattedFilter));
                 renderTable(filtered);
                 calculateStats(data);
@@ -341,11 +420,13 @@
             ['btnHadir', 'btnIzin', 'btnSakit'].forEach(id => {
                 const btn = document.getElementById(id);
                 if (id.includes(s)) {
-                    btn.classList.replace('bg-gray-100', 'bg-blue-600');
-                    btn.classList.replace('text-gray-600', 'text-white');
+                    btn.classList.replace('bg-slate-50', 'bg-blue-600');
+                    btn.classList.replace('text-slate-500', 'text-white');
+                    btn.classList.add('shadow-md', 'shadow-blue-100');
                 } else {
-                    btn.classList.replace('bg-blue-600', 'bg-gray-100');
-                    btn.classList.replace('text-white', 'text-gray-600');
+                    btn.classList.replace('bg-blue-600', 'bg-slate-50');
+                    btn.classList.replace('text-white', 'text-slate-500');
+                    btn.classList.remove('shadow-md', 'shadow-blue-100');
                 }
             });
         }
@@ -353,34 +434,37 @@
         function renderTable(data) {
             tableBody.innerHTML = "";
             emptyState.style.display = data.length ? "none" : "block";
-            document.getElementById('statTotal').textContent = data.length;
             
             data.forEach(item => {
                 const row = document.createElement('tr');
-                row.className = "hover:bg-gray-50 transition-colors";
+                row.className = "hover:bg-slate-50 transition-colors";
+                const badgeClass = item.status === 'Hadir' ? 'badge-hadir' : (item.status === 'Izin' ? 'badge-izin' : 'badge-sakit');
+                
                 row.innerHTML = `
-                    <td class="px-4 py-4 no-print">
+                    <td class="px-6 py-4 no-print">
                         <div class="flex flex-col gap-1">
-                            <button onclick="editData('${item.id}', '${item.name}', '${item.role}')" class="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-1 rounded">Edit</button>
-                            <button onclick="deleteData('${item.id}')" class="text-[10px] bg-red-100 text-red-700 px-2 py-1 rounded">Hapus</button>
+                            <button onclick="editData('${item.id}', '${item.name}', '${item.role}')" class="text-[10px] bg-amber-100 text-amber-700 font-bold px-3 py-1.5 rounded-lg hover:bg-amber-200 transition">EDIT</button>
+                            <button onclick="deleteData('${item.id}')" class="text-[10px] bg-rose-100 text-rose-700 font-bold px-3 py-1.5 rounded-lg hover:bg-rose-200 transition">HAPUS</button>
                         </div>
                     </td>
-                    <td class="px-4 py-4">
-                        <div class="flex gap-1">
-                            <img src="${item.image}" class="snapshot-preview border">
-                            <img src="${item.signature}" class="snapshot-preview border bg-white">
+                    <td class="px-6 py-4">
+                        <div class="flex gap-2">
+                            <img src="${item.image}" class="snapshot-preview">
+                            <img src="${item.signature}" class="snapshot-preview bg-white">
                         </div>
                     </td>
-                    <td class="px-4 py-4 font-bold text-xs ${item.status === 'Hadir' ? 'text-green-600' : 'text-red-600'}">${item.status || 'Hadir'}</td>
-                    <td class="px-4 py-4">
-                        <div class="font-bold text-gray-800">${item.name}</div>
-                        <div class="text-[10px] text-gray-500">${item.role}</div>
+                    <td class="px-6 py-4">
+                        <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase ${badgeClass}">${item.status || 'Hadir'}</span>
                     </td>
-                    <td class="px-4 py-4 text-[10px] text-gray-600">
-                        <div>${item.time}</div>
-                        <div class="italic text-blue-500">${item.device || '-'}</div>
+                    <td class="px-6 py-4">
+                        <div class="font-bold text-slate-800">${item.name}</div>
+                        <div class="text-[10px] text-slate-400 font-medium uppercase tracking-tighter">${item.role}</div>
                     </td>
-                    <td class="px-4 py-4 text-[10px] font-mono text-gray-400">${item.coords}</td>
+                    <td class="px-6 py-4 text-[10px]">
+                        <div class="font-bold text-slate-600">${item.time}</div>
+                        <div class="text-blue-500 font-medium">${item.device || '-'}</div>
+                    </td>
+                    <td class="px-6 py-4 text-[10px] font-mono text-slate-400">${item.coords}</td>
                 `;
                 tableBody.appendChild(row);
             });
@@ -428,15 +512,13 @@
                 if (error) throw error;
                 resetForm();
                 showToast("Absensi Berhasil!");
-                
-                // Pastikan data langsung diupdate
                 await fetchData();
                 
             } catch (e) {
                 showToast("Gagal kirim data!");
             } finally {
                 captureBtn.disabled = false;
-                document.getElementById('btnText').textContent = "Ambil Foto & Kirim Absensi";
+                document.getElementById('btnText').textContent = "KIRIM ABSENSI SEKARANG";
             }
         });
 
@@ -498,62 +580,77 @@
         function toggleManualRole() { 
             document.getElementById('manualRoleContainer').classList.toggle('hidden', document.getElementById('userRole').value !== 'custom'); 
         }
+
         const sigCtx = signaturePad.getContext('2d');
         let drawing = false;
+
         function getPos(e) { 
             const rect = signaturePad.getBoundingClientRect(); 
             const cx = e.touches ? e.touches[0].clientX : e.clientX;
             const cy = e.touches ? e.touches[0].clientY : e.clientY;
-            return { x: cx - rect.left, y: cy - rect.top }; 
+            // Adjustment for CSS scaling
+            const scaleX = signaturePad.width / rect.width;
+            const scaleY = signaturePad.height / rect.height;
+            return { x: (cx - rect.left) * (signaturePad.width / (rect.width * (window.devicePixelRatio || 1))), y: (cy - rect.top) * (signaturePad.height / (rect.height * (window.devicePixelRatio || 1))) };
         }
-        signaturePad.addEventListener('mousedown', (e) => { drawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); });
+
+        signaturePad.addEventListener('mousedown', (e) => { drawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.lineWidth=2; sigCtx.moveTo(p.x, p.y); });
         signaturePad.addEventListener('mousemove', (e) => { if(!drawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); });
         window.addEventListener('mouseup', () => drawing = false);
-        signaturePad.addEventListener('touchstart', (e) => { drawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); e.preventDefault(); });
-        signaturePad.addEventListener('touchmove', (e) => { if(!drawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); e.preventDefault(); });
+        signaturePad.addEventListener('touchstart', (e) => { drawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.lineWidth=2; sigCtx.moveTo(p.x, p.y); e.preventDefault(); }, {passive: false});
+        signaturePad.addEventListener('touchmove', (e) => { if(!drawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); e.preventDefault(); }, {passive: false});
+        
         window.clearSignature = () => sigCtx.clearRect(0, 0, signaturePad.width, signaturePad.height);
+        
         function isSignatureEmpty() {
             const b = document.createElement('canvas'); b.width = signaturePad.width; b.height = signaturePad.height;
             return signaturePad.toDataURL() === b.toDataURL();
         }
+
         function updateClock() { document.getElementById('clock').textContent = new Date().toLocaleTimeString('id-ID', { hour12: false }); }
         setInterval(updateClock, 1000);
+
         async function initCamera() {
             try {
                 const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
                 video.srcObject = s;
             } catch (err) { console.log("Kamera Error"); }
         }
+
         function initLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.watchPosition((p) => {
                     currentCoords.lat = p.coords.latitude.toFixed(6);
                     currentCoords.long = p.coords.longitude.toFixed(6);
-                    document.getElementById('geoStatus').textContent = `Lokasi: ${currentCoords.lat}, ${currentCoords.long}`;
+                    document.getElementById('geoStatus').textContent = `${currentCoords.lat}, ${currentCoords.long}`;
                 });
             }
         }
+
         function detectDevice() {
             const ua = navigator.userAgent;
             let device = "PC/Laptop";
             if (/android/i.test(ua)) device = "Android Phone";
             else if (/iPhone|iPad/i.test(ua)) device = "iOS Device";
-            document.getElementById('deviceInfo').textContent = "Perangkat: " + device;
+            document.getElementById('deviceInfo').textContent = device;
             return device;
         }
+
         function resetForm() {
             document.getElementById('userName').value = "";
             clearSignature();
             setStatus('Hadir');
         }
+
         function initRealtime() {
             supabaseClient.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'absensi' }, () => {
                 fetchData();
             }).subscribe();
         }
+
         function showToast(m) {
             const t = document.createElement('div');
-            t.className = "fixed top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-xl z-[200] text-sm";
+            t.className = "fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white px-8 py-4 rounded-2xl shadow-2xl z-[200] text-sm font-bold animate-bounce";
             t.textContent = m;
             document.body.appendChild(t);
             setTimeout(() => t.remove(), 3000);
