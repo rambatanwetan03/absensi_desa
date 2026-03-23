@@ -472,8 +472,8 @@
 
         captureBtn.addEventListener('click', async () => {
             const session = checkWorkTime();
-            if (session === "Luar Jam Kerja") {
-                showToast("Absensi ditutup. Jam kerja: 07:00-10:00 & 15:00-17:00");
+            if (session === "Maaf Luar Jam Kerja") {
+                showToast("Absensi ditutup. Jam kerja: 07:00-09:00 & 15:00-17:00");
                 return;
             }
 
