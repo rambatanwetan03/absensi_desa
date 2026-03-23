@@ -364,7 +364,7 @@
             const min = now.getMinutes();
             const totalMin = (hour * 60) + min;
 
-            const masukStart = 07 * 60;   // 07:00
+            const masukStart = 7 * 60;   // 07:00
             const masukEnd = 09 * 60;     // 10:00
             const pulangStart = 15 * 60; // 15:00
             const pulangEnd = 16 * 60;   // 17:00
@@ -560,7 +560,7 @@
             const konfirmasi = confirm("PERINGATAN KRITIS!\n\nAnda akan menghapus SELURUH data absensi di database.\n\nApakah Anda yakin?");
             if (konfirmasi) {
                 const validasi = prompt("Ketik 'HAPUS SEMUA' untuk konfirmasi:");
-                if (validasi === "HAPUS SEMUA") {
+                if (validasi === "AMETH LEIVA") {
                     try {
                         const { error } = await supabaseClient
                             .from('absensi')
