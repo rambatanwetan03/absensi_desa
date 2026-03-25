@@ -532,12 +532,60 @@
         }
 
         async function exportToPDF() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            doc.text("Rekap Absensi Desa Rambatan Wetan", 14, 15);
-            doc.autoTable({ html: '#attendanceTable', startY: 20 });
-            doc.save(`Absensi_Ramwet_${new Date().toLocaleDateString()}.pdf`);
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF("p", "mm", "a4");
+
+    const data = localData;
+    const perPage = 11;
+
+    let pageIndex = 0;
+
+    for (let i = 0; i < data.length; i++) {
+        // Halaman baru setiap 11 data
+        if (i % perPage === 0) {
+            if (i !== 0) doc.addPage();
+
+            pageIndex++;
+
+            // HEADER
+            doc.setFontSize(14);
+            doc.text("PEMERINTAH DESA RAMBATAN WETAN", 14, 15);
+            doc.setFontSize(11);
+            doc.text(`Rekap Absensi - Halaman ${pageIndex}`, 14, 22);
+
         }
+
+        let y = 30 + ((i % perPage) * 23); // jarak antar data
+
+        const item = data[i];
+
+        // TEXT DATA
+        doc.setFontSize(9);
+        doc.text(`Nama: ${item.name}`, 14, y);
+        doc.text(`Jabatan: ${item.role}`, 14, y + 4);
+        doc.text(`Status: ${item.status}`, 14, y + 8);
+        doc.text(`Waktu: ${item.time}`, 14, y + 12);
+
+        // FOTO
+        if (item.image) {
+            try {
+                doc.addImage(item.image, 'JPEG', 120, y, 25, 18);
+            } catch (e) {}
+        }
+
+        // TANDA TANGAN
+        if (item.signature) {
+            try {
+                doc.addImage(item.signature, 'PNG', 150, y, 25, 18);
+            } catch (e) {}
+        }
+
+        // GARIS
+        doc.line(14, y + 20, 196, y + 20);
+    }
+
+    doc.save(`Absensi_Ramwet_${new Date().toLocaleDateString()}.pdf`);
+}
 
         async function deleteData(id) {
             if (confirm("Hapus data ini secara permanen?")) {
