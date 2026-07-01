@@ -20,7 +20,6 @@
         #signaturePad { border: 2px dashed #cbd5e1; border-radius: 0.75rem; cursor: crosshair; touch-action: none; background-color: #f8fafc; transition: border 0.3s; }
         #signaturePad:active { border-color: #3b82f6; }
         
-        /* Custom Scrollbar for Desktop */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -41,7 +40,6 @@
         #loginOverlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.98); z-index: 100; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); padding: 1.5rem; }
         .hidden-element { display: none !important; }
         
-        /* Status Badges */
         .badge-hadir { background: #dcfce7; color: #166534; }
         .badge-izin { background: #fef9c3; color: #854d0e; }
         .badge-sakit { background: #fee2e2; color: #991b1b; }
@@ -49,7 +47,6 @@
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800">
 
-    <!-- LOGIN SYSTEM -->
     <div id="loginOverlay">
         <div class="bg-white p-6 md:p-10 rounded-3xl shadow-2xl w-full max-w-md border border-slate-100">
             <div class="text-center mb-8">
@@ -95,7 +92,6 @@
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            <!-- Form Input -->
             <div id="formSection" class="lg:col-span-7 bg-white p-5 md:p-8 rounded-[2rem] shadow-sm border border-slate-100">
                 <div class="flex items-center gap-3 mb-6">
                     <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold">1</div>
@@ -109,6 +105,18 @@
                             <button onclick="setStatus('Hadir')" id="btnHadir" class="bg-blue-600 text-white py-3 rounded-2xl text-sm font-bold shadow-md shadow-blue-100 transition-all">HADIR</button>
                             <button onclick="setStatus('Izin')" id="btnIzin" class="bg-slate-50 text-slate-500 py-3 rounded-2xl text-sm font-bold border border-slate-100 transition-all">IZIN</button>
                             <button onclick="setStatus('Sakit')" id="btnSakit" class="bg-slate-50 text-slate-500 py-3 rounded-2xl text-sm font-bold border border-slate-100 transition-all">SAKIT</button>
+                        </div>
+                    </div>
+
+                    <!-- TAMBAHAN MENU KETERANGAN -->
+                    <div id="extraInfoContainer" class="hidden space-y-4 border-t pt-4 border-slate-100">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 ml-1">Keterangan / Alasan</label>
+                            <input type="text" id="keteranganInput" placeholder="Tuliskan keterangan..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition">
+                        </div>
+                        <div id="sakitUploadContainer" class="hidden">
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 ml-1">Unggah Foto Surat Keterangan Dokter</label>
+                            <input type="file" id="suratSakitFile" accept="image/*" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-600 file:text-white file:text-xs file:font-bold hover:file:bg-blue-700">
                         </div>
                     </div>
                     
@@ -168,7 +176,6 @@
                 </div>
             </div>
 
-            <!-- Informasi & Statistik -->
             <div class="lg:col-span-5 flex flex-col gap-6">
                 <div class="bg-slate-900 text-white p-6 md:p-8 rounded-[2rem] shadow-xl relative overflow-hidden">
                     <div class="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl"></div>
@@ -235,7 +242,6 @@
             </div>
         </div>
 
-        <!-- Tabel Data -->
         <div id="tableSection" class="mt-10 bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden admin-only">
             <div class="p-6 md:p-8 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <h2 class="text-2xl font-black text-slate-900 tracking-tight">Daftar Kehadiran</h2>
@@ -269,9 +275,7 @@
 
     <canvas id="canvas"></canvas>
 
-    <!-- SCRIPT ORIGINAL TETAP BERFUNGSI -->
     <script>
-        // CONFIG & STATE (Sesuai kode awal Anda)
         const SUPABASE_URL = "https://zafnamhtrorlmuwxqkhd.supabase.co"; 
         const SUPABASE_KEY = "sb_publishable_YjQxJc_qyCIaCFtHsaw-jg_0Eb24-Xm";
         let supabaseClient = null;
@@ -288,6 +292,16 @@
         const emptyState = document.getElementById('emptyState');
         const dbStatus = document.getElementById('dbStatus');
 
+        // HELPER FUNGSI UNTUK FILE KE BASE64
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
         window.onload = function() {
             const savedRole = localStorage.getItem('user_role');
             if (savedRole) {
@@ -297,8 +311,6 @@
                 document.getElementById('loginOverlay').style.display = 'none';
             }
             updateClock();
-            
-            // Fix Signature Canvas Size for High DPI Screens
             const ratio = Math.max(window.devicePixelRatio || 1, 1);
             signaturePad.width = signaturePad.offsetWidth * ratio;
             signaturePad.height = signaturePad.offsetHeight * ratio;
@@ -313,7 +325,6 @@
         async function handleLogin() {
             const u = document.getElementById('loginUser').value;
             const p = document.getElementById('loginPass').value;
-            
             if (u === "Ramwet03" && p === "Istimewa03") {
                 currentUserRole = 'admin';
             } else if (u === "Ramwet03" && p === "12345") {
@@ -321,7 +332,6 @@
             } else {
                 return showToast("Username atau Password Salah!");
             }
-
             localStorage.setItem('user_role', currentUserRole);
             applyRoleUI();
             document.getElementById('loginOverlay').style.display = 'none';
@@ -364,12 +374,8 @@
             const hour = now.getHours();
             const min = now.getMinutes();
             const totalMin = (hour * 60) + min;
-
-            const masukStart = 6 * 60;   // 06:00
-            const masukEnd = 10 * 60;     // 10:00
-            const pulangStart = 15 * 60; // 15:00
-            const pulangEnd = 17 * 60;   // 17:00
-
+            const masukStart = 6 * 60; const masukEnd = 10 * 60;
+            const pulangStart = 15 * 60; const pulangEnd = 17 * 60;
             if (totalMin >= masukStart && totalMin <= masukEnd) return "Masuk";
             if (totalMin >= pulangStart && totalMin <= pulangEnd) return "Pulang";
             return "Luar Jam Kerja";
@@ -378,21 +384,15 @@
         async function hasAbsentedToday(name, session) {
             if(!supabaseClient) return false;
             const today = new Date().toLocaleDateString('id-ID');
-            const { data } = await supabaseClient
-                .from('absensi')
-                .select('name, time')
-                .eq('name', name);
-            
+            const { data } = await supabaseClient.from('absensi').select('name, time').eq('name', name);
             return data ? data.some(item => item.time.includes(today) && item.time.includes(session)) : false;
         }
 
         async function fetchData() {
             if (!supabaseClient) return;
-            const filterDateInput = document.getElementById('filterDate');
-            const filterDate = filterDateInput.value || new Date().toISOString().split('T')[0];
+            const filterDate = document.getElementById('filterDate').value || new Date().toISOString().split('T')[0];
             const dateObj = new Date(filterDate);
             const formattedFilter = dateObj.toLocaleDateString('id-ID');
-
             const { data, error } = await supabaseClient.from('absensi').select('*').order('created_at', { ascending: false });
             if (!error) {
                 localData = data;
@@ -405,17 +405,16 @@
         function calculateStats(data) {
             const currentMonth = new Date().getMonth();
             const currentYear = new Date().getFullYear();
-            
             const monthly = data.filter(item => {
                 const d = new Date(item.created_at);
                 return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
             });
-
             document.getElementById('statHadir').textContent = monthly.filter(i => i.status === 'Hadir').length;
             document.getElementById('statIzin').textContent = monthly.filter(i => i.status === 'Izin').length;
             document.getElementById('statSakit').textContent = monthly.filter(i => i.status === 'Sakit').length;
         }
 
+        // MODIFIKASI FUNGSI SETSTATUS UNTUK TOGGLE KETERANGAN
         function setStatus(s) {
             selectedStatus = s;
             ['btnHadir', 'btnIzin', 'btnSakit'].forEach(id => {
@@ -430,21 +429,28 @@
                     btn.classList.remove('shadow-md', 'shadow-blue-100');
                 }
             });
+
+            // Toggle visibility keterangan
+            const extra = document.getElementById('extraInfoContainer');
+            const sakit = document.getElementById('sakitUploadContainer');
+            if (s === 'Hadir') {
+                extra.classList.add('hidden');
+            } else {
+                extra.classList.remove('hidden');
+                sakit.classList.toggle('hidden', s !== 'Sakit');
+            }
         }
 
         function renderTable(data) {
             tableBody.innerHTML = "";
             emptyState.style.display = data.length ? "none" : "block";
-            
             data.forEach(item => {
                 const row = document.createElement('tr');
                 row.className = "hover:bg-slate-50 transition-colors";
                 const badgeClass = item.status === 'Hadir' ? 'badge-hadir' : (item.status === 'Izin' ? 'badge-izin' : 'badge-sakit');
-                
                 row.innerHTML = `
                     <td class="px-6 py-4 no-print">
                         <div class="flex flex-col gap-1">
-                            <button onclick="editData('${item.id}', '${item.name}', '${item.role}')" class="text-[10px] bg-amber-100 text-amber-700 font-bold px-3 py-1.5 rounded-lg hover:bg-amber-200 transition">EDIT</button>
                             <button onclick="deleteData('${item.id}')" class="text-[10px] bg-rose-100 text-rose-700 font-bold px-3 py-1.5 rounded-lg hover:bg-rose-200 transition">HAPUS</button>
                         </div>
                     </td>
@@ -456,6 +462,7 @@
                     </td>
                     <td class="px-6 py-4">
                         <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase ${badgeClass}">${item.status || 'Hadir'}</span>
+                        ${item.keterangan ? `<div class="text-[10px] mt-1 text-slate-500">Ket: ${item.keterangan}</div>` : ''}
                     </td>
                     <td class="px-6 py-4">
                         <div class="font-bold text-slate-800">${item.name}</div>
@@ -480,10 +487,20 @@
 
             const name = document.getElementById('userName').value;
             const roleSelect = document.getElementById('userRole');
+            const keterangan = document.getElementById('keteranganInput').value;
             let finalRole = roleSelect.value === 'custom' ? document.getElementById('customRole').value : roleSelect.value;
+            let suratSakitBase64 = null;
 
             if (!name || !finalRole) return showToast("Isi Nama & Jabatan!");
             if (isSignatureEmpty()) return showToast("Tanda Tangan Diperlukan!");
+
+            // Cek file jika sakit
+            if (selectedStatus === 'Sakit') {
+                const fileInput = document.getElementById('suratSakitFile');
+                if (fileInput.files.length > 0) {
+                    suratSakitBase64 = await fileToBase64(fileInput.files[0]);
+                }
+            }
 
             const isGanda = await hasAbsentedToday(name, session);
             if (isGanda) return showToast(`Anda sudah absen ${session} hari ini!`);
@@ -499,23 +516,28 @@
                 context.scale(-1, 1);
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
                 
-                const { error } = await supabaseClient.from('absensi').insert([{
+                // DATA PENGIRIMAN
+                const payload = {
                     name: name,
                     role: finalRole,
                     status: selectedStatus,
+                    keterangan: keterangan, // Tambahan
+                    surat_sakit: suratSakitBase64, // Tambahan
                     time: `${new Date().toLocaleDateString('id-ID')}, ${new Date().toLocaleTimeString('id-ID')} (${session})`,
                     coords: `${currentCoords.lat}, ${currentCoords.long}`,
                     image: canvas.toDataURL('image/jpeg', 0.5),
                     signature: signaturePad.toDataURL('image/png'),
                     device: detectDevice()
-                }]);
+                };
+
+                const { error } = await supabaseClient.from('absensi').insert([payload]);
 
                 if (error) throw error;
                 resetForm();
                 showToast("Absensi Berhasil!");
                 await fetchData();
-                
             } catch (e) {
+                console.error(e);
                 showToast("Gagal kirim data!");
             } finally {
                 captureBtn.disabled = false;
@@ -533,73 +555,35 @@
         }
 
         async function exportToPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF("p", "mm", "a4");
-
-    const data = localData;
-    const perPage = 11;
-
-    let pageIndex = 0;
-
-    for (let i = 0; i < data.length; i++) {
-        // Halaman baru setiap 11 data
-        if (i % perPage === 0) {
-            if (i !== 0) doc.addPage();
-
-            pageIndex++;
-
-            // HEADER
-            doc.setFontSize(14);
-            doc.text("PEMERINTAH DESA RAMBATAN WETAN", 14, 15);
-            doc.setFontSize(11);
-            doc.text(`Rekap Absensi - Halaman ${pageIndex}`, 14, 22);
-
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF("p", "mm", "a4");
+            const data = localData;
+            const perPage = 11;
+            let pageIndex = 0;
+            for (let i = 0; i < data.length; i++) {
+                if (i % perPage === 0) {
+                    if (i !== 0) doc.addPage();
+                    pageIndex++;
+                    doc.setFontSize(14); doc.text("PEMERINTAH DESA RAMBATAN WETAN", 14, 15);
+                    doc.setFontSize(11); doc.text(`Rekap Absensi - Halaman ${pageIndex}`, 14, 22);
+                }
+                let y = 30 + ((i % perPage) * 23);
+                const item = data[i];
+                doc.setFontSize(9);
+                doc.text(`Nama: ${item.name}`, 14, y);
+                doc.text(`Jabatan: ${item.role}`, 14, y + 4);
+                doc.text(`Status: ${item.status}`, 14, y + 8);
+                doc.text(`Waktu: ${item.time}`, 14, y + 12);
+                if (item.image) { try { doc.addImage(item.image, 'JPEG', 120, y, 25, 18); } catch (e) {} }
+                if (item.signature) { try { doc.addImage(item.signature, 'PNG', 150, y, 25, 18); } catch (e) {} }
+                doc.line(14, y + 20, 196, y + 20);
+            }
+            doc.save(`Absensi_Ramwet_${new Date().toLocaleDateString()}.pdf`);
         }
-
-        let y = 30 + ((i % perPage) * 23); // jarak antar data
-
-        const item = data[i];
-
-        // TEXT DATA
-        doc.setFontSize(9);
-        doc.text(`Nama: ${item.name}`, 14, y);
-        doc.text(`Jabatan: ${item.role}`, 14, y + 4);
-        doc.text(`Status: ${item.status}`, 14, y + 8);
-        doc.text(`Waktu: ${item.time}`, 14, y + 12);
-
-        // FOTO
-        if (item.image) {
-            try {
-                doc.addImage(item.image, 'JPEG', 120, y, 25, 18);
-            } catch (e) {}
-        }
-
-        // TANDA TANGAN
-        if (item.signature) {
-            try {
-                doc.addImage(item.signature, 'PNG', 150, y, 25, 18);
-            } catch (e) {}
-        }
-
-        // GARIS
-        doc.line(14, y + 20, 196, y + 20);
-    }
-
-    doc.save(`Absensi_Ramwet_${new Date().toLocaleDateString()}.pdf`);
-}
 
         async function deleteData(id) {
             if (confirm("Hapus data ini secara permanen?")) {
                 await supabaseClient.from('absensi').delete().eq('id', id);
-                fetchData();
-            }
-        }
-
-        async function editData(id, n, r) {
-            const nn = prompt("Edit Nama:", n);
-            const nr = prompt("Edit Jabatan:", r);
-            if (nn && nr) {
-                await supabaseClient.from('absensi').update({ name: nn, role: nr }).eq('id', id);
                 fetchData();
             }
         }
@@ -611,17 +595,11 @@
                 const validasi = prompt("Ketik 'HAPUS SEMUA' untuk konfirmasi:");
                 if (validasi === "AMETH LEIVA") {
                     try {
-                        const { error } = await supabaseClient
-                            .from('absensi')
-                            .delete()
-                            .neq('name', 'HACK_FILTER_ALL'); 
-
+                        const { error } = await supabaseClient.from('absensi').delete().neq('name', 'HACK_FILTER_ALL'); 
                         if (error) throw error;
                         showToast("Seluruh data telah dihapus!");
                         fetchData();
-                    } catch (e) {
-                        showToast("Gagal mereset data.");
-                    }
+                    } catch (e) { showToast("Gagal mereset data."); }
                 }
             }
         }
@@ -632,25 +610,18 @@
 
         const sigCtx = signaturePad.getContext('2d');
         let drawing = false;
-
         function getPos(e) { 
             const rect = signaturePad.getBoundingClientRect(); 
             const cx = e.touches ? e.touches[0].clientX : e.clientX;
             const cy = e.touches ? e.touches[0].clientY : e.clientY;
-            // Adjustment for CSS scaling
-            const scaleX = signaturePad.width / rect.width;
-            const scaleY = signaturePad.height / rect.height;
             return { x: (cx - rect.left) * (signaturePad.width / (rect.width * (window.devicePixelRatio || 1))), y: (cy - rect.top) * (signaturePad.height / (rect.height * (window.devicePixelRatio || 1))) };
         }
-
         signaturePad.addEventListener('mousedown', (e) => { drawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.lineWidth=2; sigCtx.moveTo(p.x, p.y); });
         signaturePad.addEventListener('mousemove', (e) => { if(!drawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); });
         window.addEventListener('mouseup', () => drawing = false);
         signaturePad.addEventListener('touchstart', (e) => { drawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.lineWidth=2; sigCtx.moveTo(p.x, p.y); e.preventDefault(); }, {passive: false});
         signaturePad.addEventListener('touchmove', (e) => { if(!drawing) return; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); e.preventDefault(); }, {passive: false});
-        
         window.clearSignature = () => sigCtx.clearRect(0, 0, signaturePad.width, signaturePad.height);
-        
         function isSignatureEmpty() {
             const b = document.createElement('canvas'); b.width = signaturePad.width; b.height = signaturePad.height;
             return signaturePad.toDataURL() === b.toDataURL();
@@ -687,6 +658,8 @@
 
         function resetForm() {
             document.getElementById('userName').value = "";
+            document.getElementById('keteranganInput').value = "";
+            document.getElementById('suratSakitFile').value = "";
             clearSignature();
             setStatus('Hadir');
         }
