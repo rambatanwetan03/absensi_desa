@@ -276,8 +276,8 @@
     <canvas id="canvas"></canvas>
 
     <script>
-        const SUPABASE_URL = "https://zafnamhtrorlmuwxqkhd.supabase.co"; 
-        const SUPABASE_KEY = "sb_publishable_YjQxJc_qyCIaCFtHsaw-jg_0Eb24-Xm";
+        const SUPABASE_URL = "https://rwyautatldipmqbgkrxh.supabase.co"; 
+        const SUPABASE_KEY = "sb_publishable_INa11LeiDlOBW3gHc0TG-A_BiqTyt6p";
         let supabaseClient = null;
         let currentUserRole = null;
         let selectedStatus = 'Hadir';
@@ -374,7 +374,7 @@
             const hour = now.getHours();
             const min = now.getMinutes();
             const totalMin = (hour * 60) + min;
-            const masukStart = 6 * 60; const masukEnd = 10 * 60;
+            const masukStart = 21 * 60; const masukEnd = 23 * 60;
             const pulangStart = 15 * 60; const pulangEnd = 17 * 60;
             if (totalMin >= masukStart && totalMin <= masukEnd) return "Masuk";
             if (totalMin >= pulangStart && totalMin <= pulangEnd) return "Pulang";
